@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>InstaReel - Working Login</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,sans-serif}
+body{background:#000;color:#fff;height:100vh;overflow:hidden}
+.hidden{display:none!important}
+.login{height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.box{background:#111;padding:30px;border-radius:20px;max-width:400px;width:100%;border:1px solid #222}
+h1{text-align:center;font-size:32px;margin-bottom:30px;background:linear-gradient(135deg,#FF6B00,#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+input{width:100%;padding:14px;margin:10px 0;background:#1a1a1a;border:2px solid #333;color:#fff;border-radius:12px;font-size:16px}
+input:focus{border-color:#FF6B00;outline:none}
+button{width:100%;padding:16px;background:linear-gradient(135deg,#FF6B00,#8B5CF6);border:none;color:#fff;font-weight:600;border-radius:12px;margin:10px 0;font-size:16px;cursor:pointer}
+button:active{transform:scale(0.98)}
+.feed{height:100vh;overflow-y:auto;padding-top:60px;padding-bottom:70px}
+.reel{height:calc(100vh - 130px);position:relative;background:#1a1a1a;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #222}
+.reel img{width:100%;height:100%;object-fit:cover}
+.reel-info{position:absolute;bottom:20px;left:15px;right:15px;background:rgba(0,0,0,0.7);padding:15px;border-radius:12px}
+.header{position:fixed;top:0;left:0;right:0;background:rgba(17,17,17,0.95);padding:15px;display:flex;justify-content:space-between;z-index:100;border-bottom:1px solid #222}
+.wallet{padding:8px 16px;background:linear-gradient(135deg,#FFD700,#FF6B00);color:#000;border-radius:20px;font-weight:700;cursor:pointer}
+.nav{position:fixed;bottom:0;left:0;right:0;background:#111;display:flex;justify-content:space-around;padding:10px 0;border-top:1px solid #222}
+.nav-item{text-align:center;color:#888;padding:5px;font-size:11px;cursor:pointer}
+.nav-item.active{color:#FF6B00}
+.nav-item div:first-child{font-size:26px}
+.msg{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:12px 20px;border-radius:10px;display:none;z-index:999}
+.msg.error{background:#ef4444}
+</style>
+</head>
+<body>
+
+<div id="msg" class="msg"></div>
+
+<!-- LOGIN SCREEN -->
+<div id="login" class="login">
+  <div class="box">
+    <h1>🇮🇳 InstaReel</h1>
+    
+    <div id="loginStep1">
+      <h3 style="margin-bottom:15px">Customer Login</h3>
+      <input type="tel" id="mobile" placeholder="Mobile Number" maxlength="10">
+      <button onclick="doLogin()">Login with OTP: 1234</button>
+      
+      <div style="text-align:center;margin:20px 0;color:#666">OR</div>
+      <button onclick="gmailLogin()" style="background:#fff;color:#000">Continue with Gmail</button>
+      
+      <hr style="margin:25px 0;border:none;border-top:1px solid #333">
+      
+      <h3 style="margin-bottom:15px">Admin Login</h3>
+      <input type="text" id="adminUser" placeholder="Username" autocomplete="off">
+      <input type="password" id="adminPass" placeholder="Password" autocomplete="off">
+      <button onclick="adminLogin()" style="background:#8B5CF6">Login to Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="hidden">
+  <div class="header">
+    <div style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#FF6B00,#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent">InstaReel</div>
+    <div class="wallet" onclick="showWallet()">💰 ₹<span id="bal">0.00</span></div>
+  </div>
+  
+  <div class="feed" id="feed"></div>
+  
+  <div class="nav">
+    <div class="nav-item active" onclick="showHome()"><div>🏠</div>Home</div>
+    <div class="nav-item" onclick="showMsg('Bharat Tab Coming Soon')"><div>🇮🇳</div>Bharat</div>
+    <div class="nav-item" onclick="uploadReel()" style="font-size:32px;color:#FF6B00">➕</div>
+    <div class="nav-item" onclick="showMsg('JeeTo Challenge: ₹10 Reward')"><div>🏆</div>JeeTo</div>
+    <div class="nav-item" onclick="showProfile()"><div>👤</div>Profile</div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin" class="hidden">
+  <div class="header">
+    <div style="font-size:20px;font-weight:700">👑 Admin Panel</div>
+    <button onclick="logout()" style="padding:8px 16px;background:#ef4444;border:none;color:#fff;border-radius:8px;cursor:pointer">Logout</button>
+  </div>
+  <div style="padding:80px 15px 20px">
+    <div style="background:#1a1a1a;padding:20px;border-radius:15px;margin-bottom:15px;border-left:4px solid #FF6B00">
+      <h3 style="margin-bottom:15px">📊 Platform Stats</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px">
+        <div style="text-align:center;padding:15px;background:#0a0a0a;border-radius:10px">
+          <div style="font-size:28px;font-weight:800;color:#FF6B00" id="totalU">1,247</div>
+          <div style="font-size:12px;color:#888">Users</div>
+        </div>
+        <div style="text-align:center;padding:15px;background:#0a0a0a;border-radius:10px">
+          <div style="font-size:28px;font-weight:800;color:#8B5CF6" id="totalR">5,432</div>
+          <div style="font-size:12px;color:#888">Reels</div>
+        </div>
+        <div style="text-align:center;padding:15px;background:#0a0a0a;border-radius:10px">
+          <div style="font-size:28px;font-weight:800;color:#10B981">10M</div>
+          <div style="font-size:12px;color:#888">Views</div>
+        </div>
+        <div style="text-align:center;padding:15px;background:#0a0a0a;border-radius:10px">
+          <div style="font-size:28px;font-weight:800;color:#FFD700">₹10L</div>
+          <div style="font-size:12px;color:#888">Revenue</div>
+        </div>
+      </div>
+    </div>
+    <div style="background:#1a1a1a;padding:20px;border-radius:15px;border-left:4px solid #10B981">
+      <h3 style="margin-bottom:15px">💰 Revenue Split</h3>
+      <div style="margin:10px 0;display:flex;justify-content:space-between"><span>Total:</span><span style="font-weight:700">₹10,00,000</span></div>
+      <div style="margin:10px 0;display:flex;justify-content:space-between"><span style="color:#10B981">Creator 75%:</span><span style="font-weight:700;color:#10B981">₹7,50,000</span></div>
+      <div style="margin:10px 0;display:flex;justify-content:space-between"><span style="color:#FFD700">Platform 25%:</span><span style="font-weight:700;color:#FFD700">₹2,50,000</span></div>
+      <div style="margin:10px 0;display:flex;justify-content:space-between"><span style="color:#8B5CF6">Fee 10%:</span><span style="font-weight:700;color:#8B5CF6">₹75,000</span></div>
+      <hr style="margin:15px 0;border:none;border-top:1px solid #333">
+      <div style="font-size:20px;font-weight:800;color:#10B981;display:flex;justify-content:space-between"><span>Profit:</span><span>₹3,25,000</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let user={bal:0,views:0};
+
+function showMsg(t,e){
+  const m=document.getElementById('msg');
+  m.innerText=t;
+  m.className='msg'+(e?' error':'');
+  m.style.display='block';
+  setTimeout(()=>m.style.display='none',3000);
+}
+
+function doLogin(){
+  const mob=document.getElementById('mobile').value;
+  if(mob.length!==10){showMsg('❌ Enter 10 digit mobile',true);return}
+  if(mob==='9660607097'||confirm('OTP: 1234\nClick OK to login')){
+    user={phone:mob,bal:0,views:0,type:'user'};
+    localStorage.setItem('user',JSON.stringify(user));
+    showMsg('✅ Login Successful!');
+    setTimeout(()=>{
+      document.getElementById('login').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      loadApp();
+    },500);
+  }
+}
+
+function gmailLogin(){
+  user={email:'user@gmail.com',bal:0,views:0,type:'user'};
+  localStorage.setItem('user',JSON.stringify(user));
+  showMsg('✅ Gmail Login Successful!');
+  setTimeout(()=>{
+    document.getElementById('login').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    loadApp();
+  },500);
+}
+
+function adminLogin(){
+  const u=document.getElementById('adminUser').value;
+  const p=document.getElementById('adminPass').value;
+  if(u==='9510111213'&&p==='235689'){
+    document.getElementById('login').classList.add('hidden');
+    document.getElementById('admin').classList.remove('hidden');
+    showMsg('✅ Admin Login Successful!');
+  }else{
+    showMsg('❌ Wrong Credentials',true);
+  }
+}
+
+function loadApp(){
+  const d=localStorage.getItem('user');
+  if(d)user=JSON.parse(d);
+  document.getElementById('bal').innerText=user.bal.toFixed(2);
+  
+  const reels=[
+    {user:'@creator_mumbai',cap:'Welcome to InstaReel! 🇮🇳 #MadeInIndia',views:'15.2K',earn:'114.00',img:'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=700&fit=crop'},
+    {user:'@foodie_delhi',cap:'Best Street Food! 😋 #Foodie',views:'8.5K',earn:'63.75',img:'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=700&fit=crop'},
+    {user:'@dance_india',cap:'Dance Challenge 💃 #JeeTo',views:'22.1K',earn:'165.75',img:'https://images.unsplash.com/photo-1508700929628-6662d630b3c1?w=400&h=700&fit=crop'},
+    {user:'@travel_kekri',cap:'Kekri, Rajasthan 📍 #Travel',views:'5.8K',earn:'43.50',img:'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=700&fit=crop'}
+  ];
+  
+  const feed=document.getElementById('feed');
+  feed.innerHTML='';
+  reels.forEach(r=>{
+    feed.innerHTML+=`
+    <div class="reel">
+      <img src="${r.img}" style="width:100%;height:100%;object-fit:cover">
+      <div class="reel-info">
+        <div style="font-size:16px;font-weight:700;margin-bottom:5px">${r.user}</div>
+        <div style="font-size:14px;margin-bottom:8px">${r.cap}</div>
+        <div style="font-size:13px;color:#FFD700;font-weight:600">👁 ${r.views} • ₹${r.earn}</div>
+      </div>
+    </div>`;
+  });
+}
+
+function showWallet(){
+  showMsg('💰 Balance: ₹'+user.bal.toFixed(2)+' | Views: '+user.views);
+}
+
+function showHome(){document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));event.target.closest('.nav-item').classList.add('active')}
+function showProfile(){showMsg('👤 Profile: @'+(user.phone||'user')+' | Earned: ₹'+user.bal.toFixed(2))}
+function uploadReel(){showMsg('📤 Upload feature coming soon! Use demo reels for now')}
+
+function logout(){
+  localStorage.clear();
+  location.reload();
+}
+
+window.onload=()=>{
+  const d=localStorage.getItem('user');
+  if(d){
+    user=JSON.parse(d);
+    document.getElementById('login').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    loadApp();
+  }
+}
+</script>
+</body>
+</html>
