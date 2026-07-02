@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>InstaReel - Bharat Ka Apna Reels App</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:#000;color:#fff;height:100vh;overflow:hidden;position:fixed;width:100%}
+.hidden{display:none!important}
+.btn{width:100%;padding:16px;background:linear-gradient(135deg,#FF6B00,#8B5CF6);border:none;color:#fff;font-weight:600;border-radius:12px;margin:8px 0;font-size:16px;cursor:pointer}
+.btn:active{transform:scale(0.98)}
+.btn-small{padding:10px 16px;font-size:14px;width:auto}
+.btn-danger{background:#ef4444}
+.btn-success{background:#10b981}
+.btn-back{background:#333;border:1px solid #555}
+input,textarea,select{width:100%;padding:14px;margin:8px 0;background:#1a1a1a;border:2px solid #333;color:#fff;border-radius:12px;font-size:16px}
+input:focus,textarea:focus{border-color:#FF6B00;outline:none}
+.login{height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;background:radial-gradient(circle at top,#1a1a1a,#000)}
+.box{background:#111;padding:35px;border-radius:24px;max-width:400px;width:100%;border:1px solid #222}
+.header{position:fixed;top:0;left:0;right:0;background:rgba(17,17,17,0.98);backdrop-filter:blur(20px);padding:12px 15px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center;z-index:100;border-bottom:1px solid #222}
+.logo{font-size:24px;font-weight:800;background:linear-gradient(135deg,#FF6B00,#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.wallet{padding:10px 18px;background:linear-gradient(135deg,#FFD700,#FF6B00);color:#000;border-radius:25px;font-weight:700;font-size:15px;cursor:pointer}
+.back-btn{width:40px;height:40px;background:#222;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;margin-right:10px}
+.app{height:100vh;overflow:hidden}
+.feed{height:100vh;overflow-y:auto;scroll-snap-type:y mandatory;padding-top:calc(60px + env(safe-area-inset-top));padding-bottom:calc(75px + env(safe-area-inset-bottom))}
+.reel{height:calc(100vh - 135px);height:calc(100dvh - 135px);position:relative;background:#000;scroll-snap-align:start;display:flex;align-items:center;justify-content:center}
+.reel img{width:100%;height:100%;object-fit:cover}
+.reel-info{position:absolute;bottom:20px;left:15px;right:85px;background:rgba(0,0,0,0.7);padding:15px;border-radius:12px;backdrop-filter:blur(10px)}
+.reel-user{font-size:16px;font-weight:700;margin-bottom:6px}
+.reel-cap{font-size:14px;line-height:1.5;margin-bottom:8px}
+.reel-stats{font-size:13px;color:#FFD700;font-weight:600}
+.reel-actions{position:absolute;right:12px;bottom:110px;display:flex;flex-direction:column;gap:28px}
+.action{width:52px;height:52px;background:rgba(255,255,255,0.15);backdrop-filter:blur(20px);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:26px;cursor:pointer;border:1px solid rgba(255,255,255,0.1)}
+.action:active{transform:scale(0.9)}
+.action span{font-size:12px;margin-top:4px;font-weight:600}
+.nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,17,17,0.98);backdrop-filter:blur(20px);display:flex;justify-content:space-around;padding:10px 0;padding-bottom:calc(10px + env(safe-area-inset-bottom));border-top:1px solid #222;z-index:100}
+.nav-item{color:#666;text-align:center;cursor:pointer;padding:6px 12px;font-size:11px;font-weight:600;flex:1}
+.nav-item.active{color:#FF6B00}
+.nav-item div:first-child{font-size:28px;margin-bottom:3px}
+.modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.97);display:none;align-items:flex-end;justify-content:center;z-index:999}
+.modal.show{display:flex}
+.modal-box{background:#1a1a1a;width:100%;max-width:500px;max-height:92vh;border-radius:24px 24px 0 0;padding:24px;overflow-y:auto;animation:slide 0.3s}
+@keyframes slide{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-title{font-size:22px;font-weight:700}
+.close{width:36px;height:36px;background:#333;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px}
+.page{height:100vh;overflow-y:auto;padding-top:calc(60px + env(safe-area-inset-top));padding-bottom:calc(75px + env(safe-area-inset-bottom))}
+.card{background:#1a1a1a;padding:20px;border-radius:16px;margin:15px;border-left:4px solid #FF6B00}
+.card h3{font-size:18px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat{text-align:center;padding:15px;background:#0a0a0a;border-radius:12px}
+.stat-num{font-size:24px;font-weight:800;margin-bottom:5px}
+.stat-label{font-size:12px;color:#888}
+.toast{position:fixed;top:calc(80px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:14px 24px;border-radius:12px;z-index:9999;display:none;box-shadow:0 10px 30px rgba(16,185,129,0.4);font-weight:600}
+.toast.error{background:#ef4444}
+.profile-header{background:linear-gradient(135deg,#1a1a1a,#2a2a2a);padding:35px 20px;text-align:center}
+.avatar{width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#FF6B00,#8B5CF6);margin:0 auto 15px;display:flex;align-items:center;justify-content:center;font-size:45px;border:5px solid #000}
+.my-reels{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:2px}
+.my-reel{aspect-ratio:9/16;background:#222;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;position:relative}
+.my-reel img{width:100%;height:100%;object-fit:cover}
+.my-reel-views{position:absolute;bottom:5px;left:5px;background:rgba(0,0,0,0.7);padding:3px 6px;border-radius:6px;font-size:11px;font-weight:600}
+.admin-item{padding:15px;background:#0a0a0a;border-radius:10px;margin:10px 0;display:flex;justify-content:space-between;align-items:center}
+.badge{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700}
+.badge-success{background:#10b981;color:#000}
+.badge-pending{background:#f59e0b;color:#000}
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+<div id="login" class="login">
+  <div class="box">
+    <h1 style="text-align:center;margin-bottom:35px;font-size:36px;background:linear-gradient(135deg,#FF6B00,#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🇮🇳 InstaReel</h1>
+    <h3 style="margin-bottom:15px;font-size:18px">Customer Login</h3>
+    <input type="tel" id="mobile" placeholder="Mobile Number" maxlength="10" inputmode="numeric">
+    <button class="btn" onclick="doLogin()">Login with OTP: 1234</button>
+    <div style="text-align:center;margin:22px 0;color:#666;font-size:14px">OR</div>
+    <button class="btn" onclick="gmailLogin()" style="background:#fff;color:#000">🔵 Continue with Gmail</button>
+    <hr style="margin:28px 0;border:none;border-top:1px solid #333">
+    <h3 style="margin-bottom:15px;font-size:18px">Admin Login</h3>
+    <input type="text" id="adminUser" placeholder="Username" autocomplete="off">
+    <input type="password" id="adminPass" placeholder="Password" autocomplete="off">
+    <button class="btn" onclick="adminLogin()" style="background:#8B5CF6">Login to Dashboard</button>
+    <p style="font-size:12px;color:#666;margin-top:28px;text-align:center;line-height:1.8">💰 Earn ₹7.50 per 1,000 views<br>🚫 No Guest Login | 🔒 100% Secure</p>
+  </div>
+</div>
+<div id="app" class="app hidden">
+  <div class="header">
+    <div class="logo">InstaReel</div>
+    <div class="wallet" onclick="showWallet()">💰 ₹<span id="bal">0.00</span></div>
+  </div>
+  <div class="feed" id="feed"></div>
+  <div class="nav">
+    <div class="nav-item active" onclick="showPage('home',this)"><div>🏠</div>Home</div>
+    <div class="nav-item" onclick="showPage('bharat',this)"><div>🇮🇳</div>Bharat</div>
+    <div class="nav-item" onclick="uploadReel()" style="font-size:34px;color:#FF6B00">➕</div>
+    <div class="nav-item" onclick="showPage('jeeto',this)"><div>🏆</div>JeeTo</div>
+    <div class="nav-item" onclick="showPage('profile',this)"><div>👤</div>Profile</div>
+  </div>
+</div>
+<div id="bharat" class="page hidden">
+  <div class="header">
+    <div style="display:flex;align-items:center">
+      <div class="back-btn" onclick="goHome()">←</div>
+      <div class="logo">🇮🇳 Bharat</div>
+    </div>
+    <div class="wallet" onclick="showWallet()">💰 ₹<span class="bal2">0.00</span></div>
+  </div>
+  <div class="card">
+    <h3>🔥 Trending in Bharat</h3>
+    <p style="color:#888;margin-bottom:15px">Local content from Kekri, Rajasthan</p>
+    <div id="bharatReels"></div>
+  </div>
+  <div class="card">
+    <h3>📍 Near You</h3>
+    <p style="color:#888">Jamwa Ramgarh • Jaipur • Ajmer • Kekri</p>
+  </div>
+</div>
+<div id="jeeto" class="page hidden">
+  <div class="header">
+    <div style="display:flex;align-items:center">
+      <div class="back-btn" onclick="goHome()">←</div>
+      <div class="logo">🏆 JeeTo</div>
+    </div>
+    <div class="wallet" onclick="showWallet()">💰 ₹<span class="bal2">0.00</span></div>
+  </div>
+  <div class="card">
+    <h3>🎯 Today's Challenge</h3>
+    <div style="background:linear-gradient(135deg,#FF6B00,#8B5CF6);padding:20px;border-radius:12px;margin:15px 0">
+      <div style="font-size:20px;font-weight:700;margin-bottom:8px">Dance Karo #Jeeto</div>
+      <div style="font-size:14px;opacity:0.9">Upload dance reel with #Jeeto tag</div>
+      <div style="font-size:24px;font-weight:800;margin-top:12px">Reward: ₹10</div>
+    </div>
+    <button class="btn" onclick="joinChallenge()">Join Challenge</button>
+  </div>
+  <div class="card">
+    <h3>🏅 Leaderboard - This Week</h3>
+    <div class="admin-item">
+      <span>1. @rahul_dance</span><span style="color:#FFD700;font-weight:700">₹450</span>
+    </div>
+    <div class="admin-item">
+      <span>2. @priya_moves</span><span style="color:#FFD700;font-weight:700">₹380</span>
+    </div>
+    <div class="admin-item">
+      <span>3. @amit_kekri</span><span style="color:#FFD700;font-weight:700">₹320</span>
+    </div>
+  </div>
+</div>
+<div id="profile" class="page hidden">
+  <div class="header">
+    <div style="display:flex;align-items:center">
+      <div class="back-btn" onclick="goHome()">←</div>
+      <div class="logo">👤 Profile</div>
+    </div>
+    <div class="wallet" onclick="showWallet()">💰 ₹<span class="bal2">0.00</span></div>
+  </div>
+  <div class="profile-header">
+    <div class="avatar">👤</div>
+    <h2 id="profileName" style="font-size:22px;margin-bottom:5px">@user</h2>
+    <p style="color:#888;font-size:14px">Creator | India 🇮🇳</p>
+  </div>
+  <div style="display:flex;justify-content:space-around;padding:25px 0;border-bottom:1px solid #222;background:#0a0a0a">
+    <div style="text-align:center">
+      <div style="font-size:24px;font-weight:800;color:#FF6B00" id="pReels">0</div>
+      <div style="font-size:13px;color:#888;margin-top:5px">Reels</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:24px;font-weight:800;color:#FF6B00" id="pViews">0</div>
+      <div style="font-size:13px;color:#888;margin-top:5px">Views</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:24px;font-weight:800;color:#FF6B00" id="pEarn">₹0</div>
+      <div style="font-size:13px;color:#888;margin-top:5px">Earned</div>
+    </div>
+  </div>
+  <div style="padding:20px">
+    <button class="btn" onclick="voiceReel()">🎤 Create Voice Reel</button>
+    <button class="btn" onclick="showWallet()">💰 My Wallet</button>
+    <button class="btn" onclick="showMyReels()">🎬 My Reels</button>
+    <button class="btn btn-danger" onclick="logout()">🚪 Logout</button>
+  </div>
+  <div class="my-reels" id="myReelsGrid"></div>
+</div>
+<div id="admin" class="hidden">
+  <div class="header">
+    <div style="display:flex;align-items:center">
+      <div class="back-btn" onclick="logout()">←</div>
+      <div style="font-size:20px;font-weight:700">👑 Admin Panel</div>
+    </div>
+    <button class="btn btn-small btn-danger" onclick="logout()">Logout</button>
+  </div>
+  <div style="padding:80px 15px 20px;overflow-y:auto;height:100vh">
+    <div class="card">
+      <h3>📊 Dashboard</h3>
+      <div class="grid">
+        <div class="stat"><div class="stat-num" style="color:#FF6B00" id="totalUsers">1,247</div><div class="stat-label">Users</div></div>
+        <div class="stat"><div class="stat-num" style="color:#8B5CF6" id="totalReels">5,432</div><div class="stat-label">Reels</div></div>
+        <div class="stat"><div class="stat-num" style="color:#10B981" id="totalViewsAdmin">10M</div><div class="stat-label">Views</div></div>
+        <div class="stat"><div class="stat-num" style="color:#FFD700" id="totalRevenue">₹10L</div><div class="stat-label">Revenue</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>💰 Revenue Split</h3>
+      <div style="margin:10px 0;display:flex;justify-content:space-between"><span>Total:</span><span style="font-weight:700">₹10,00,000</span></div>
+      <div style="margin:10px 0;display:flex;justify-content:space-between"><span style="color:#10B981">Creator 75%:</span><span style="font-weight:700;color:#10B981">₹7,50,000</span></div>
+      <div style="margin:10px 0;display:flex;justify-content:space-between"><span style="color:#FFD700">Platform 25%:</span><span style="font-weight:700;color:#FFD700">₹2,50,000</span></div>
+      <div style="margin:10px 0;display:flex;justify-content:space-between"><span style="color:#8B5CF6">Fee 10%:</span><span style="font-weight:700;color:#8B5CF6">₹75,000</span></div>
+      <hr style="margin:15px 0;border:none;border-top:2px solid #333">
+      <div style="font-size:22px;font-weight:800;color:#10B981;display:flex;justify-content:space-between"><span>Profit:</span><span>₹3,25,000</span></div>
+    </div>
+    <div class="card">
+      <h3>👥 All Users</h3>
+      <div id="usersList">
+        <div class="admin-item">
+          <div><div style="font-weight:700">@9660607097</div><div style="font-size:12px;color:#888">Joined: Today • <span class="badge badge-success">Active</span></div></div>
+          <div style="text-align:right"><div style="font-weight:700;color:#FFD700">₹0</div><div style="font-size:12px;color:#888">0 Reels</div></div>
+        </div>
+        <div class="admin-item">
+          <div><div style="font-weight:700">@9876543210</div><div style="font-size:12px;color:#888">Joined: 2 days ago • <span class="badge badge-success">Active</span></div></div>
+          <div style="text-align:right"><div style="font-weight:700;color:#FFD700">₹450</div><div style="font-size:12px;color:#888">12 Reels</div></div>
+        </div>
+        <div class="admin-item">
+          <div><div style="font-weight:700">@rahul_dance</div><div style="font-size:12px;color:#888">Joined: 1 week ago • <span class="badge badge-success">Active</span></div></div>
+          <div style="text-align:right"><div style="font-weight:700;color:#FFD700">₹1,245</div><div style="font-size:12px;color:#888">34 Reels</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>🎬 All Reels</h3>
+      <div id="reelsList">
+        <div class="admin-item">
+          <div><div style="font-weight:700">@rahul_dance</div><div style="font-size:12px;color:#888">Dance Karo #Jeeto • 22.1K views</div></div>
+          <div style="text-align:right"><button class="btn btn-small btn-danger" onclick="deleteReel(this)">Delete</button></div>
+        </div>
+        <div class="admin-item">
+          <div><div style="font-weight:700">@foodie_delhi</div><div style="font-size:12px;color:#888">Best Street Food • 8.5K views</div></div>
+          <div style="text-align:right"><button class="btn btn-small btn-danger" onclick="deleteReel(this)">Delete</button></div>
+        </div>
+        <div class="admin-item">
+          <div><div style="font-weight:700">@travel_kekri</div><div style="font-size:12px;color:#888">Kekri, Rajasthan • 5.8K views</div></div>
+          <div style="text-align:right"><button class="btn btn-small btn-danger" onclick="deleteReel(this)">Delete</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>💸 Withdraw Requests <span class="badge badge-pending">3 Pending</span></h3>
+      <div id="withdrawList">
+        <div class="admin-item">
+          <div><div style="font-weight:700">@9660607097</div><div style="font-size:13px;color:#888">UPI: 9660607097@ybl</div></div>
+          <div style="text-align:right"><div style="font-weight:700;color:#10B981">₹450.00</div><button class="btn btn-small btn-success" onclick="approveWithdraw(this)" style="margin-top:5px">Approve</button></div>
+        </div>
+        <div class="admin-item">
+          <div><div style="font-weight:700">@9876543210</div><div style="font-size:13px;color:#888">UPI: user@paytm</div></div>
+          <div style="text-align:right"><div style="font-weight:700;color:#10B981">₹1,200.00</div><button class="btn btn-small btn-success" onclick="approveWithdraw(this)" style="margin-top:5px">Approve</button></div>
+        </div>
+        <div class="admin-item">
+          <div><div style="font-weight:700">@rahul_dance</div><div style="font-size:13px;color:#888">UPI: rahul@okaxis</div></div>
+          <div style="text-align:right"><div style="font-weight:700;color:#10B981">₹2,450.00</div><button class="btn btn-small btn-success" onclick="approveWithdraw(this)" style="margin-top:5px">Approve</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>⚙️ Admin Actions</h3>
+      <button class="btn" onclick="addDemoUser()">➕ Add Demo User</button>
+      <button class="btn" onclick="addDemoReel()">🎬 Add Demo Reel</button>
+      <button class="btn" onclick="exportData()">📥 Export Data (CSV)</button>
+      <button class="btn btn-danger" onclick="deleteAllData()">🗑️ Clear All Data</button>
+    </div>
+  </div>
+</div>
+<div id="walletModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 class="modal-title">💰 My Wallet</h2>
+      <div class="close" onclick="closeModal('walletModal')">✕</div>
+    </div>
+    <div style="text-align:center;padding:25px;background:linear-gradient(135deg,#1a1a1a,#0a0a0a);border-radius:16px;margin-bottom:20px;border:1px solid #333">
+      <div style="font-size:14px;color:#888;margin-bottom:10px">Total Balance</div>
+      <div style="font-size:52px;font-weight:800;color:#10B981;text-shadow:0 0 20px rgba(16,185,129,0.3)">₹<span id="modalBal">0.00</span></div>
+      <div style="font-size:14px;color:#888;margin-top:10px"><span id="totalViews">0</span> views • ₹7.50 per 1K</div>
+    </div>
+    <button class="btn" onclick="addViews()">+ Add 1,000 Demo Views</button>
+    <button class="btn" onclick="withdraw()" style="background:#10B981">💸 Withdraw Money</button>
+    <button class="btn btn-back" onclick="closeModal('walletModal')">← Back to App</button>
+  </div>
+</div>
+<div id="uploadModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 class="modal-title">📤 Create Reel</h2>
+      <div class="close" onclick="closeModal('uploadModal')">✕</div>
+    </div>
+    <input type="file" id="file" accept="video/*,image/*" style="padding:12px;border-style:dashed">
+    <textarea id="caption" placeholder="Write a caption... #InstaReel #India" rows="4"></textarea>
+    <select id="category">
+      <option value="">Select Category</option>
+      <option>😂 Comedy</option><option>💃 Dance</option><option>🍔 Food</option><option>✈️ Travel</option>
+      <option>📚 Education</option><option>💻 Tech</option><option>🎵 Music</option><option>🏏 Sports</option>
+    </select>
+    <input type="text" id="location" placeholder="Location (optional)" autocomplete="off">
+    <button class="btn" onclick="postReel()">🚀 Post Reel</button>
+    
