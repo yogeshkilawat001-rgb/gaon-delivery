@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>InstaReel - Bharat Ka Apna Reels App</title>
+<meta name="description" content="InstaReel - Earn ₹7.50 per 1,000 views. Made in India">
+<meta name="theme-color" content="#000000">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;color:#fff;position:fixed}
+.hidden{display:none!important}
+.btn{width:100%;padding:16px;background:linear-gradient(135deg,#FF6B00,#8B5CF6);border:none;color:#fff;font-weight:600;border-radius:12px;cursor:pointer;margin:8px 0;font-size:16px;transition:transform 0.1s}
+.btn:active{transform:scale(0.98)}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn-small{padding:10px 16px;font-size:14px;width:auto;display:inline-block}
+.btn-danger{background:#ef4444}
+.btn-success{background:#10b981}
+.btn-outline{background:transparent;border:2px solid #FF6B00;color:#FF6B00}
+input,textarea,select{width:100%;padding:14px;margin:8px 0;background:#1a1a1a;border:2px solid #333;color:#fff;border-radius:12px;font-size:16px;transition:border 0.2s}
+input:focus,textarea:focus,select:focus{border-color:#FF6B00;outline:none}
+.login-wrap{width:100%;height:100vh;height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;background:radial-gradient(circle at top,#1a1a1a,#000)}
+.login-box{width:100%;max-width:400px;background:#111;padding:35px;border-radius:24px;border:1px solid #222;box-shadow:0 20px 60px rgba(255,107,0,0.1)}
+.header{position:fixed;top:0;left:0;right:0;background:rgba(17,17,17,0.98);backdrop-filter:blur(20px);padding:12px 15px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center;z-index:100;border-bottom:1px solid #222}
+.logo{font-size:24px;font-weight:800;background:linear-gradient(135deg,#FF6B00,#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.wallet-btn{background:linear-gradient(135deg,#FFD700,#FF6B00);padding:10px 18px;border-radius:25px;color:#000;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 15px rgba(255,215,0,0.3)}
+.wallet-btn:active{transform:scale(0.95)}
+.app-container{width:100%;height:100vh;height:100dvh;overflow:hidden;position:relative}
+.stories{display:flex;gap:12px;padding:15px 15px 10px;overflow-x:auto;background:#0a0a0a;border-bottom:1px solid #222;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.stories::-webkit-scrollbar{display:none}
+.story{text-align:center;cursor:pointer;flex-shrink:0}
+.story-ring{width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,#FF6B00,#8B5CF6,#FFD700);padding:3px;transition:transform 0.2s}
+.story:active .story-ring{transform:scale(0.95)}
+.story-img{width:100%;height:100%;border-radius:50%;background:#222;display:flex;align-items:center;justify-content:center;font-size:30px;border:3px solid #000}
+.story-name{font-size:11px;margin-top:6px;color:#aaa;max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feed{width:100%;height:100%;overflow-y:auto;scroll-snap-type:y mandatory;padding-top:calc(125px + env(safe-area-inset-top));padding-bottom:calc(75px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.feed::-webkit-scrollbar{display:none}
+.reel{width:100%;height:calc(100vh - 200px);height:calc(100dvh - 200px);position:relative;background:#000;display:flex;align-items:center;justify-content:center;scroll-snap-align:start;overflow:hidden}
+.reel-video,.reel-img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover}
+.reel-overlay{position:absolute;bottom:0;left:0;right:0;height:250px;background:linear-gradient(transparent,rgba(0,0,0,0.9));pointer-events:none;z-index:2}
+.reel-info{position:absolute;bottom:25px;left:15px;right:85px;z-index:3}
+.reel-username{font-size:16px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.reel-caption{font-size:14px;line-height:1.5;margin-bottom:8px}
+.reel-stats{font-size:13px;color:#FFD700;font-weight:600;display:flex;align-items:center;gap:12px}
+.reel-actions{position:absolute;right:12px;bottom:110px;display:flex;flex-direction:column;gap:28px;z-index:3}
+.action-btn{width:52px;height:52px;background:rgba(255,255,255,0.15);backdrop-filter:blur(20px);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:26px;cursor:pointer;transition:all 0.2s;border:1px solid rgba(255,255,255,0.1)}
+.action-btn:active{transform:scale(0.9);background:rgba(255,255,255,0.25)}
+.action-count{font-size:12px;margin-top:4px;color:#fff;font-weight:600;text-shadow:0 2px 4px rgba(0,0,0,0.5)}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(17,17,17,0.98);backdrop-filter:blur(20px);display:flex;justify-content:space-around;padding:10px 0;padding-bottom:calc(10px + env(safe-area-inset-bottom));border-top:1px solid #222;z-index:100}
+.nav-item{color:#666;text-align:center;cursor:pointer;padding:6px 12px;font-size:11px;font-weight:600;flex:1;transition:color 0.2s;position:relative}
+.nav-item.active{color:#FF6B00}
+.nav-item.active::before{content:'';position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:4px;height:4px;background:#FF6B00;border-radius:50%}
+.nav-item div:first-child{font-size:28px;margin-bottom:3px}
+.modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.97);display:none;align-items:flex-end;justify-content:center;z-index:999}
+.modal.show{display:flex}
+.modal-box{background:#1a1a1a;width:100%;max-width:500px;max-height:92vh;border-radius:24px 24px 0 0;padding:24px;overflow-y:auto;animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1)}
+@keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-title{font-size:22px;font-weight:700}
+.close-btn{width:36px;height:36px;background:#333;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px}
+.admin-container{width:100%;height:100vh;height:100dvh;overflow-y:auto;padding-top:calc(75px + env(safe-area-inset-top));padding-bottom:20px;-webkit-overflow-scrolling:touch}
+.admin-tabs{display:flex;gap:8px;padding:0 15px 15px;overflow-x:auto;border-bottom:1px solid #222;scrollbar-width:none}
+.admin-tabs::-webkit-scrollbar{display:none}
+.admin-tab{padding:12px 20px;background:#1a1a1a;border-radius:12px;color:#888;cursor:pointer;white-space:nowrap;font-size:14px;font-weight:600;border:1px solid #333;transition:all 0.2s}
+.admin-tab.active{background:linear-gradient(135deg,#FF6B00,#8B5CF6);color:#fff;border:none;box-shadow:0 4px 15px rgba(139,92,246,0.3)}
+.admin-card{background:#1a1a1a;padding:20px;border-radius:16px;margin:12px 15px;border-left:4px solid #FF6B00;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+.admin-card h3{font-size:18px;margin-bottom:15px;display:flex;align-items:center;gap:8px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.stat-box{text-align:center;padding:15px;background:#0a0a0a;border-radius:12px}
+.stat-num{font-size:28px;font-weight:800;margin-bottom:5px}
+.stat-label{font-size:12px;color:#888}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.table{width:100%;border-collapse:collapse;font-size:13px;min-width:600px}
+.table th,.table td{padding:14px 10px;text-align:left;border-bottom:1px solid #222}
+.table th{color:#888;font-weight:700;font-size:12px;text-transform:uppercase}
+.table tr:hover{background:#0a0a0a}
+.badge{padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;display:inline-block}
+.badge-active{background:#10b981;color:#000}
+.badge-banned{background:#ef4444;color:#fff}
+.video-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1a1a,#2a2a2a)}
+.video-placeholder div:first-child{font-size:90px;margin-bottom:20px;opacity:0.3}
+.video-placeholder div:last-child{font-size:16px;color:#666}
+.toast{position:fixed;top:calc(80px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:#10b981;color:#fff;padding:14px 24px;border-radius:12px;z-index:9999;display:none;animation:toastIn 0.3s;box-shadow:0 10px 30px rgba(16,185,129,0.4);font-weight:600}
+@keyframes toastIn{from{top:calc(60px + env(safe-area-inset-top));opacity:0}to{top:calc(80px + env(safe-area-inset-top));opacity:1}}
+.loading{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:14px;color:#888}
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<!-- LOGIN -->
+<div id="loginPage" class="login-wrap">
+  <div class="login-box">
+    <h1 style="text-align:center;margin-bottom:35px;font-size:36px;background:linear-gradient(135deg,#FF6B00,#8B5CF6);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🇮🇳 InstaReel</h1>
+    <h3 style="margin-bottom:15px;font-size:18px">Customer Login</h3>
+    <input type="tel" id="mobInput" placeholder="Enter 10 digit mobile" maxlength="10" inputmode="numeric">
+    <button class="btn" onclick="loginUser()">Login with OTP</button>
+    <div style="text-align:center;margin:22px 0;color:#666;font-size:14px">OR</div>
+    <button class="btn" onclick="gmailLogin()" style="background:#fff;color:#000">🔵 Continue with Gmail</button>
+    <hr style="margin:28px 0;border:none;border-top:1px solid #333">
+    <h3 style="margin-bottom:15px;font-size:18px">Admin Login</h3>
+    <input type="text" id="adminU" placeholder="Username" autocomplete="off">
+    <input type="password" id="adminP" placeholder="Password" autocomplete="off">
+    <button class="btn" onclick="adminLogin()" style="background:#8B5CF6">Login to Dashboard</button>
+    <p style="font-size:12px;color:#666;margin-top:28px;text-align:center;line-height:1.8">
+      💰 Earn ₹7.50 per 1,000 views<br>🚫 No Guest Login | 🔒 100% Secure
+    </p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" class="hidden">
+  <div class="app-container">
+    <div class="header">
+      <div class="logo">InstaReel</div>
+      <div class="wallet-btn" onclick="openWallet()">💰 ₹<span id="walletBal">0.00</span></div>
+    </div>
+    
+    <div class="stories">
+      <div class="story" onclick="addStory()"><div class="story-ring"><div class="story-img">➕</div></div><div class="story-name">Your Story</div></div>
+      <div class="story"><div class="story-ring"><div class="story-img">👨</div></div><div class="story-name">Rahul</div></div>
+      <div class="story"><div class="story-ring"><div class="story-img">👩</div></div><div class="story-name">Priya</div></div>
+      <div class="story"><div class="story-ring"><div class="story-img">👨</div></div><div class="story-name">Amit</div></div>
+      <div class="story"><div class="story-ring"><div class="story-img">👩</div></div><div class="story-name">Neha</div></div>
+      <div class="story"><div class="story-ring"><div class="story-img">👨</div></div><div class="story-name">Vikas</div></div>
+    </div>
+    
+    <div class="feed" id="feedBox"></div>
+    
+    <div class="bottom-nav">
+      <div class="nav-item active" onclick="goHome()"><div>🏠</div>Home</div>
+      <div class="nav-item" onclick="goBharat()"><div>🇮🇳</div>Bharat</div>
+      <div class="nav-item" onclick="goCreate()" style="font-size:34px;color:#FF6B00">➕</div>
+      <div class="nav-item" onclick="goJeeTo()"><div>🏆</div>JeeTo</div>
+      <div class="nav-item" onclick="goProfile()"><div>👤</div>Profile</div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div id="adminApp" class="hidden">
+  <div class="header">
+    <div class="logo">👑 Admin Panel</div>
+    <button class="btn btn-small" onclick="logout()">Logout</button>
+  </div>
+  <div class="admin-container">
+    <div class="admin-tabs">
+      <div class="admin-tab active" onclick="switchTab('dash',this)">📊 Dashboard</div>
+      <div class="admin-tab" onclick="switchTab('users',this)">👥 Users</div>
+      <div class="admin-tab" onclick="switchTab('reels',this)">🎬 Reels</div>
+      <div class="admin-tab" onclick="switchTab('withdraw',this)">💸 Withdraws</div>
+      <div class="admin-tab" onclick="switchTab('settings',this)">⚙️ Settings</div>
+    </div>
+    
+    <div id="tab-dash">
+      <div class="admin-card">
+        <h3>📊 Platform Stats</h3>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-num" style="color:#FF6B00" id="totalUsers">0</div>
+            <div class="stat-label">Total Users</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color:#8B5CF6" id="totalReels">0</div>
+            <div class="stat-label">Total Reels</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color:#10B981" id="totalViews">0</div>
+            <div class="stat-label">Total Views</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color:#FFD700">₹<span id="totalRev">0</span></div>
+            <div class="stat-label">Revenue</div>
+          </div>
+        </div>
+      </div>
+      <div class="admin-card">
+        <h3>💰 Revenue Breakdown</h3>
+        <div style="margin:10px 0;display:flex;justify-content:space-between;align-items:center"><span style="color:#888">Total Revenue:</span><span style="font-weight:700;font-size:16px">₹10,00,000</span></div>
+        <div style="margin:10px 0;display:flex;justify-content:space-between;align-items:center"><span style="color:#10B981">Creator Share (75%):</span><span style="font-weight:700;color:#10B981;font-size:16px">₹7,50,000</span></div>
+        <div style="margin:10px 0;display:flex;justify-content:space-between;align-items:center"><span style="color:#FFD700">Platform Share (25%):</span><span style="font-weight:700;color:#FFD700;font-size:16px">₹2,50,000</span></div>
+        <div style="margin:10px 0;display:flex;justify-content:space-between;align-items:center"><span style="color:#8B5CF6">Withdraw Fee (10%):</span><span style="font-weight:700;color:#8B5CF6;font-size:16px">₹75,000</span></div>
+        <hr style="margin:18px 0;border:none;border-top:2px solid #333">
+        <div style="font-size:22px;font-weight:800;color:#10B981;display:flex;justify-content:space-between;align-items:center"><span>Net Profit:</span><span>₹3,25,000</span></div>
+      </div>
+    </div>
+    
+    <div id="tab-users" class="hidden">
+      <div class="admin-card">
+        <h3>👥 All Users</h3>
+        <div class="table-wrap">
+          <table class="table" id="usersTable">
+            <thead><tr><th>User</th><th>Views</th><th>Earned</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div id="tab-reels" class="hidden">
+      <div class="admin-card">
+        <h3>🎬 All Reels</h3>
+        <div class="table-wrap">
+          <table class="table" id="reelsTable">
+            <thead><tr><th>User</th><th>Caption</th><th>Views</th><th>Earnings</th><th>Action</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div id="tab-withdraw" class="hidden">
+      <div class="admin-card">
+        <h3>💸 Withdraw Requests</h3>
+        <div class="table-wrap">
+          <table class="table" id="withdrawTable">
+            <thead><tr><th>User</th><th>Amount</th><th>UPI ID</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody><tr><td colspan="5" style="text-align:center;color:#666;padding:30px">No pending requests</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div id="tab-settings" class="hidden">
+      <div class="admin-card">
+        <h3>⚙️ Platform Settings</h3>
+        <label style="font-size:14px;color:#888;display:block;margin-top:15px">Creator Share Percentage</label>
+        <input type="number" id="creatorShare" value="75" min="50" max="90">
+        <label style="font-size:14px;color:#888;display:block;margin-top:15px">Withdraw Fee Percentage</label>
+        <input type="number" id="withdrawFee" value="10" min="0" max="20">
+        <label style="font-size:14px;color:#888;display:block;margin-top:15px">Minimum Withdraw Amount (₹)</label>
+        <input type="number" id="minWithdraw" value="100" min="50" max="1000">
+        <button class="btn" onclick="saveSettings()" style="margin-top:20px">💾 Save Settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WALLET MODAL -->
+<div id="walletModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">💰 My Wallet</h2>
+      <div class="close-btn" onclick="closeModal('walletModal')">✕</div>
+    </div>
+    <div style="text-align:center;padding:25px;background:linear-gradient(135deg,#1a1a1a,#0a0a0a);border-radius:16px;margin-bottom:20px;border:1px solid #333">
+      <div style="font-size:14px;color:#888;margin-bottom:10px">Total Balance</div>
+      <div style="font-size:52px;font-weight:800;color:#10B981;text-shadow:0 0 20px rgba(16,185,129,0.3)">₹<span id="modalBal">0.00</span></div>
+      <div style="font-size:14px;color:#888;margin-top:10px"><span id="totalViewsModal">0</span> views • ₹7.50 per 1K views</div>
+    </div>
+    <button class="btn" onclick="addViews()">+ Add 1,000 Demo Views</button>
+    <button class="btn" onclick="withdraw()" style="background:#10B981">💸 Withdraw Money</button>
+    <button class="btn btn-outline" onclick="closeModal('walletModal')">Close</button>
+  </div>
+</div>
+
+<!-- UPLOAD MODAL -->
+<div id="uploadModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">📤 Create Reel</h2>
+      <div class="close-btn" onclick="closeModal('uploadModal')">✕</div>
+    </div>
+    <input type="file" id="vidFile" accept="video/*,image/*" style="padding:12px;border-style:dashed">
+    <textarea id="capText" placeholder="Write a caption... #InstaReel #India" rows="4"></textarea>
+    <select id="catSelect">
+      <option value="">Select Category</option>
+      <option>😂 Comedy</option>
+      <option>💃 Dance</option>
+      <option>🍔 Food</option>
+      <option>✈️ Travel</option>
+      <option>📚 Education</option>
+      <option>💻 Tech</option>
+      <option>🎵 Music</option>
+      <option>🏏 Sports</option>
+    </select>
+    <input type="text" id="locText" placeholder="Location (optional)">
+    <button class="btn" onclick="postReel()">🚀 Post Reel</button>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div id="profileModal" class="modal">
+  <div class="modal-box" style="padding:0;max-height:92vh">
+    <div style="background:linear-gradient(135deg,#1a1a1a,#2a2a2a);padding:35px 20px;text-align:center;position:relative">
+      <div class="close-btn" onclick="closeModal('profileModal')" style="position:absolute;top:15px;right:15px">✕</div>
+      <div style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#FF6B00,#8B5CF6);margin:0 auto 15px;display:flex;align-items:center;justify-content:center;font-size:45px;border:5px solid #000;box-shadow:0 10px 30px rgba(139,92,246,0.3)">👤</div>
+      <h2 id="profileName" style="font-size:22px;margin-bottom:5px">@user</h2>
+      <p style="color:#888;font-size:14px">Creator | India 🇮🇳</p>
+    </div>
+    <div style="display:flex;justify-content:space-around;padding:25px 0;border-bottom:1px solid #222;background:#0a0a0a">
+      <div style="text-align:center"><div style="font-size:24px;font-weight:800;color:#FF6B00" id="profileReels">0</div><div style="font-size:13px;color:#888;margin-top:5px">Reels</div></div>
+      <div style="text-align:center"><div style="font-size:24px;font-weight:800;color:#FF6B00" id="profileViews">0</div><div style="font-size:13px;color:#888;margin-top:5px">Views</div></div>
+      <div style="text-align:center"><div style="font-size:24px;font-weight:800;color:#FF6B00" id="profileEarn">₹0</div><div style="font-size:13px;color:#888;margin-top:5px">Earned</div></div>
+    </div>
+    <div style="padding:20px">
+      <button class="btn" onclick="voiceReel()">🎤 Create Voice Reel</button>
+      <button class="btn" onclick="openWallet()">💰 My Wallet</button>
+      <button class="btn" onclick="showMyReels()">🎬 My Reels</button>
+      <button class="btn" onclick="logout()" style="background:#ef4444">🚪 Logout</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let user={bal:0,views:0,reels:0,type:'',phone:'',email:'',status:'active'};
+let users=[];
+let reelsData=[];
+let withdrawRequests=[];
+let settings={creatorShare:75,withdrawFee:10,minWithdraw:100};
+
+function showToast(msg,duration=3000){
+  const t=document.getElementById('toast');
+  t.innerText=msg;
+  t.style.display='block';
+  setTimeout(()=>{t.style.display='none'},duration);
+}
+
+function loginUser(){
+  const mob=document.getElementById('mobInput').value.trim();
+  if(mob.length!==10||!/^\d+$/.test(mob)){showToast('❌ Enter valid 10 digit mobile');return}
+  const otp=prompt('Enter OTP (Demo: 1234)');
+  if(otp!=='1234'){showToast('❌ Wrong OTP');return}
+  user={type:'customer',phone:mob,bal:0,views:0,reels:0,status:'active',joined:Date.now()};
+  saveUser();
+  showToast('✅ Login Successful!');
+  setTimeout(showApp,500);
+}
+
+function gmailLogin(){
+  user={type:'customer',email:'user@gmail.com',bal:0,views:0,reels:0,status:'active',joined:Date.now()};
+  saveUser();
+  showToast('✅ Gmail Login Successful!');
+  setTimeout(showApp,500);
+}
+
+function adminLogin(){
+  const u=document.getElementById('adminU').value.trim();
+  const p=document.getElementById('adminP').value.trim();
+  if(u==='9510111213'&&p==='235689'){
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('adminApp').classList.remove('hidden');
+    loadAdminData();
+    showToast('✅ Admin Login Successful!');
+  }else{
+    showToast('❌ Wrong Admin Credentials');
+  }
+}
+
+function showApp(){
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('mainApp').classList.remove('hidden');
+  loadUser();
+  loadFeed();
+}
+
+function saveUser(){
+  localStorage.setItem('instaUser',JSON.stringify(user));
+  localStorage.setItem('instaUsers',JSON.stringify(users));
+  localStorage.setItem('instaReels',JSON.stringify(reelsData));
+  localStorage.setItem('instaWithdraws',JSON.stringify(withdrawRequests));
+  localStorage.setItem('instaSettings',JSON.stringify(settings));
+}
+
+function loadUser(){
+  const d=localStorage.getItem('instaUser');
+  if(d)user=JSON.parse(d);
+  const u=localStorage.getItem('instaUsers');
+  if(u)users=JSON.parse(u);
+  const r=localStorage.getItem('instaReels');
+  if(r)reelsData=JSON.parse(r);
+  const w=localStorage.getItem('instaWithdraws');
+  if(w)withdrawRequests=JSON.parse(w);
+  const s=localStorage.getItem('instaSettings');
+  if(s)settings=JSON.parse(s);
+  
+  if(user.type==='customer'){
+    const exists=users.find(u=>u.phone===user.phone||u.email===user.email);
+    if(!exists){
+      users.push({...user});
+      saveUser();
+    }
+  }
+  
+  document.getElementById('walletBal').innerText=user.bal.toFixed(2);
+}
+
+function loadFeed(){
+  const feed=document.getElementById('feedBox');
+  feed.innerHTML='';
+  
+  const demoReels=[
+    {
+      user:'@creator_mumbai',
+      cap:'Welcome to InstaReel! 🇮🇳 #MadeInIndia #Bharat',
+      views:'15.2K',
+      earn:'114.00',
+      img:'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=700&fit=crop&q=80'
+    },
+    {
+      user:'@foodie_delhi',
+      cap:'Best Street Food in Delhi! 😋 #Foodie #Delhi #StreetFood',
+      views:'8.5K',
+      earn:'63.75',
+      img:'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&h=700&fit=crop&q=80'
+    },
+    {
+      user:'@dance_india',
+      cap:'Dance Challenge 💃 #JeeTo #Dance #Viral',
+      views:'22.1K',
+      earn:'165.75',
+      img:'https://images.unsplash.com/photo-1508700929628-6662d630b3c1?w=400&h=700&fit=crop&q=80'
+    },
+    {
+      user:'@travel_kekri',
+      cap:'Beautiful Kekri, Rajasthan 📍 #Travel #Rajasthan #IncredibleIndia',
+      views:'5.8K',
+      earn:'43.50',
+      img:'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=700&fit=crop&q=80'
+    },
+    {
+      user:'@tech_guru',
+      cap:'Learn Coding in 60 Seconds 💻 #Tech #Coding #Education',
+      views:'12.3K',
+      earn:'92.25',
+      img:'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=700&fit=crop&q=80'
+    }
+  ];
+  
+  [...demoReels,...reelsData].forEach((r,i)=>{
+    const mediaTag = r.img ? `<img src="${r.img}" class="reel-img" alt="reel" loading="lazy">` : `<div class="video-placeholder"><div>🎬</div><div>Tap + to upload your reel</div></div>`;
+    feed.innerHTML+=`
+    <div class="reel">
+      ${mediaTag}
+      <div class="reel-overlay"></div>
+      <div class="reel-info">
+        <h4 class="reel-username">${r.user} ${r.verified?'<span style="color:#1DA1F2">✓</span>':''}</h4>
+        <p class="reel-caption">${r.cap}</p>
+        <div class="reel-stats">
+          <span>👁 ${r.views} views</span>
+          <span>💰 ₹${r.earn} earned</span>
+        </div
