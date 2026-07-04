@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>InstaMoney</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Noto Sans Devanagari', 'Segoe UI', sans-serif; background:#0B0B0F; }
+  ::-webkit-scrollbar { display:none; }
+  .no-scrollbar::-webkit-scrollbar { display:none; }
+  .ring-story { background: linear-gradient(45deg,#fbbf24,#f43f5e,#c026d3); }
+  .spinner { border: 3px solid rgba(255,255,255,0.15); border-top-color:#fbbf24; border-radius:50%; width:22px; height:22px; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .fade-in { animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to {opacity:1; transform:none;} }
+</style>
+</head>
+<body class="text-white">
+
+<div id="root" class="max-w-md mx-auto min-h-screen flex flex-col border-x border-white/5 relative"></div>
+
+<script>
+  window.addEventListener("error", (e) => showFatalError(e.message));
+  window.addEventListener("unhandledrejection", (e) => showFatalError(e.reason?.message || String(e.reason)));
+  function showFatalError(msg) {
+    const root = document.getElementById("root");
+    if (root && !document.getElementById("fatal-error-box")) {
+      root.innerHTML = `<div id="fatal-error-box" style="padding:20px;color:#fca5a5;font-size:13px;line-height:1.6;">
+        <b>कुछ गड़बड़ हुई:</b><br>${msg}<br><br>
+        <span style="color:#999">अगर यह network से जुड़ी दिक्कत लगे तो बेहतर WiFi/network पर दोबारा try करें।</span>
+      </div>`;
+    }
+  }
+  setTimeout(() => {
+    const root = document.getElementById("root");
+    if (root && root.querySelector(".spinner") && !document.getElementById("fatal-error-box")) {
+      showFatalError("App load होने में बहुत समय लग रहा है — यह अक्सर कमज़ोर internet connection की वजह से होता है। बेहतर network पर दोबारा try करें।");
+    }
+  }, 8000);
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  onAuthStateChanged, signOut, updateProfile
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, collection, addDoc, doc, setDoc, getDoc, onSnapshot,
+  query, orderBy, updateDoc, arrayUnion, arrayRemove, serverTimestamp,
+  where, limit, deleteDoc, getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const CLOUDINARY_CLOUD_NAME = "meg5qdqo";
+const CLOUDINARY_UPLOAD_PRESET = "instamoney_unsigned";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDE47KD6KVJdqDwGhmAPT-e_1qQXIb0UdY",
+  authDomain: "instamoney-daca8.firebaseapp.com",
+  projectId: "instamoney-daca8",
+  storageBucket: "instamoney-daca8.firebasestorage.app",
+  messagingSenderId: "772302252157",
+  appId: "1:772302252157:web:03f62ec05d5384d01c2914"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+async function uploadToCloudinary(file) {
+  const url = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(url, { method: "POST", body: formData });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || "अपलोड फेल हुआ");
+  return data.secure_url;
+}
+
+const root = document.getElementById("root");
+let currentUser = null;
+let currentUsername = "";
+let posts = [];
+let stories = [];
+let unsubPosts = null;
+let unsubStories = null;
+let openCommentsPostId = null;
+let unsubComments = null;
+let currentView = "home"; // home | profile | search
+let profileUid = null;
+let unsubNotifications = null;
+
+function el(html) {
+  const t = document.createElement("template");
+  t.innerHTML = html.trim();
+  return t.content.firstChild;
+}
+function timeAgo(ts) {
+  if (!ts) return "अभी";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60) return "अभी";
+  if (diff < 3600) return Math.floor(diff / 60) + " मि";
+  if (diff < 86400) return Math.floor(diff / 3600) + " घं";
+  return Math.floor(diff / 86400) + " दिन";
+}
+
+function renderAuth(mode = "login") {
+  root.innerHTML = "";
+  const isLogin = mode === "login";
+  const wrap = el(`
+    <div class="flex flex-col justify-center min-h-screen px-6 fade-in">
+      <h1 class="text-4xl font-bold text-center mb-1 bg-gradient-to-r from-amber-400 via-rose-500 to-fuchsia-600 bg-clip-text text-transparent">InstaMoney</h1>
+      <p class="text-center text-white/40 text-sm mb-8">${isLogin ? "वापस स्वागत है" : "नया अकाउंट बनाएं"}</p>
+      <div class="space-y-3">
+        ${!isLogin ? `<input id="auth-name" placeholder="यूज़रनेम" class="w-full bg-white/5 rounded-lg px-4 py-3 outline-none placeholder:text-white/30 text-sm" />` : ""}
+        <input id="auth-email" type="email" placeholder="ईमेल" class="w-full bg-white/5 rounded-lg px-4 py-3 outline-none placeholder:text-white/30 text-sm" />
+        <input id="auth-pass" type="password" placeholder="पासवर्ड (कम से कम 6 अक्षर)" class="w-full bg-white/5 rounded-lg px-4 py-3 outline-none placeholder:text-white/30 text-sm" />
+      </div>
+      <p id="auth-error" class="text-rose-400 text-xs mt-3 hidden"></p>
+      <button id="auth-submit" class="mt-5 w-full bg-gradient-to-r from-amber-400 to-rose-500 text-black font-semibold rounded-full py-3 text-sm flex items-center justify-center gap-2">
+        <span id="auth-btn-text">${isLogin ? "लॉगिन करें" : "साइन अप करें"}</span>
+      </button>
+      <p class="text-center text-white/50 text-sm mt-6">
+        ${isLogin ? "अकाउंट नहीं है?" : "पहले से अकाउंट है?"}
+        <button id="auth-switch" class="text-amber-400 font-semibold">${isLogin ? "साइन अप करें" : "लॉगिन करें"}</button>
+      </p>
+    </div>
+  `);
+  root.appendChild(wrap);
+
+  document.getElementById("auth-switch").onclick = () => renderAuth(isLogin ? "signup" : "login");
+
+  document.getElementById("auth-submit").onclick = async () => {
+    const email = document.getElementById("auth-email").value.trim();
+    const pass = document.getElementById("auth-pass").value;
+    const errEl = document.getElementById("auth-error");
+    errEl.classList.add("hidden");
+    const btn = document.getElementById("auth-submit");
+    const btnText = document.getElementById("auth-btn-text");
+    btnText.innerHTML = `<span class="spinner inline-block align-middle"></span>`;
+    btn.disabled = true;
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } else {
+        const name = document.getElementById("auth-name").value.trim();
+        if (!name) throw { message: "यूज़रनेम डालना ज़रूरी है" };
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        await updateProfile(cred.user, { displayName: name });
+        await setDoc(doc(db, "users", cred.user.uid), {
+          username: name, email, createdAt: serverTimestamp()
+        });
+      }
+    } catch (e) {
+      errEl.textContent = friendlyError(e);
+      errEl.classList.remove("hidden");
+      btnText.textContent = isLogin ? "लॉगिन करें" : "साइन अप करें";
+      btn.disabled = false;
+    }
+  };
+}
+
+function friendlyError(e) {
+  const msg = e.code || e.message || "";
+  if (msg.includes("email-already-in-use")) return "यह ईमेल पहले से रजिस्टर है, लॉगिन करें";
+  if (msg.includes("invalid-email")) return "ईमेल सही फॉर्मेट में डालें";
+  if (msg.includes("weak-password")) return "पासवर्ड कम से कम 6 अक्षर का हो";
+  if (msg.includes("invalid-credential") || msg.includes("wrong-password") || msg.includes("user-not-found")) return "ईमेल या पासवर्ड गलत है";
+  return e.message || "कुछ गड़बड़ हुई, दोबारा कोशिश करें";
+}
+
+function renderApp() {
+  root.innerHTML = "";
+  const shell = el(`
+    <div class="flex flex-col min-h-screen fade-in">
+      <header class="sticky top-0 z-20 flex items-center justify-between px-4 py-3 bg-[#0B0B0F]/95 backdrop-blur border-b border-white/5">
+        <h1 class="text-xl font-bold">InstaMoney</h1>
+        <div class="flex items-center gap-4">
+          <button id="notif-btn" class="relative text-white/70 text-xl leading-none">
+            🔔<span id="notif-badge" class="hidden absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center">0</span>
+          </button>
+          <button id="dm-btn" class="text-white/70 text-xl leading-none">✉️</button>
+          ${currentIsAdmin ? `<button id="admin-btn" class="text-white/70 text-xl leading-none">🛠️</button>` : ""}
+          <button id="search-nav-btn" class="text-white/70 text-xl leading-none">🔍</button>
+          <button id="logout-btn" class="text-xs text-white/50">लॉगआउट</button>
+        </div>
+      </header>
+      <div id="stories-row" class="flex gap-3 px-4 py-3 overflow-x-auto border-b border-white/5 no-scrollbar"></div>
+      <main id="feed" class="flex-1 pb-20"></main>
+      <nav class="fixed bottom-0 w-full max-w-md bg-[#0B0B0F]/95 backdrop-blur border-t border-white/5 flex items-center justify-around py-3 z-20">
+        <button id="nav-home" class="text-xs">🏠 होम</button>
+        <button id="nav-explore" class="text-xs">🧭 एक्सप्लोर</button>
+        <button id="new-post-btn" class="text-white/70 text-2xl leading-none">＋</button>
+        <button id="nav-profile" class="text-xs">👤 ${currentUsername || ""}</button>
+      </nav>
+    </div>
+  `);
+  root.appendChild(shell);
+
+  document.getElementById("logout-btn").onclick = () => signOut(auth);
+  document.getElementById("new-post-btn").onclick = openCreatePost;
+  document.getElementById("nav-home").onclick = () => { currentView = "home"; showHome(); };
+  document.getElementById("nav-explore").onclick = () => { currentView = "explore"; renderExplore(); };
+  document.getElementById("nav-profile").onclick = () => { currentView = "profile"; profileUid = currentUser.uid; renderProfile(currentUser.uid); };
+  document.getElementById("search-nav-btn").onclick = () => { currentView = "search"; renderSearch(); };
+  document.getElementById("notif-btn").onclick = openNotifications;
+  document.getElementById("dm-btn").onclick = openInbox;
+  if (currentIsAdmin) document.getElementById("admin-btn").onclick = openAdminDashboard;
+
+  showHome();
+  listenNotifications();
+}
+
+function updateNavHighlight() {
+  const homeBtn = document.getElementById("nav-home");
+  const exploreBtn = document.getElementById("nav-explore");
+  const profBtn = document.getElementById("nav-profile");
+  if (!homeBtn || !profBtn) return;
+  homeBtn.className = currentView === "home" ? "text-xs text-amber-400" : "text-xs text-white/70";
+  exploreBtn.className = currentView === "explore" ? "text-xs text-amber-400" : "text-xs text-white/70";
+  profBtn.className = currentView === "profile" ? "text-xs text-amber-400" : "text-xs text-white/70";
+}
+
+function showHome() {
+  const storiesRow = document.getElementById("stories-row");
+  const feedEl = document.getElementById("feed");
+  if (storiesRow) storiesRow.classList.remove("hidden");
+  updateNavHighlight();
+  listenFeed();
+  listenStories();
+}
+
+function listenFeed() {
+  if (unsubPosts) unsubPosts();
+  const feedEl = document.getElementById("feed");
+  feedEl.innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`;
+  const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+  unsubPosts = onSnapshot(q, (snap) => {
+    posts = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => !currentBlockedUsers.includes(p.uid));
+    renderFeed();
+  }, (err) => {
+    feedEl.innerHTML = `<p class="text-center text-rose-400 text-sm py-10 px-6">${friendlyError(err)}<br><span class="text-white/30">(Firestore rules check करें)</span></p>`;
+  });
+}
+
+function renderFeed() {
+  const feedEl = document.getElementById("feed");
+  if (!posts.length) {
+    feedEl.innerHTML = `<p class="text-center text-white/30 text-sm py-16 px-8">अभी कोई पोस्ट नहीं है। सबसे पहली पोस्ट आप डालें 👇</p>`;
+    return;
+  }
+  feedEl.innerHTML = "";
+  posts.forEach((post) => feedEl.appendChild(renderPostCard(post)));
+  wirePostCardEvents(feedEl);
+}
+
+function renderPostCard(post) {
+  const liked = (post.likes || []).includes(currentUser.uid);
+  const likeCount = (post.likes || []).length;
+  const commentCount = post.commentCount || 0;
+  const isOwn = post.uid === currentUser.uid;
+  return el(`
+    <article class="border-b border-white/5 pb-2" data-post-id="${post.id}">
+      <div class="flex items-center justify-between px-3 py-2">
+        <div class="flex items-center gap-2 profile-link" data-uid="${post.uid}">
+          <div class="w-8 h-8 rounded-full ring-story p-[2px]"><div class="w-full h-full rounded-full bg-[#0B0B0F] flex items-center justify-center text-sm">👤</div></div>
+          <span class="text-sm font-semibold">${post.username || "user"}</span>
+          <span class="text-white/30 text-xs">· ${timeAgo(post.createdAt)}</span>
+        </div>
+        ${isOwn ? `<button class="post-menu-btn text-white/50 px-2" data-id="${post.id}">⋮</button>` : ""}
+      </div>
+      <img src="${post.imageUrl}" class="w-full aspect-square object-cover bg-white/5" />
+      <div class="flex items-center justify-between px-3 pt-2">
+        <div class="flex items-center gap-4">
+          <button class="like-btn text-xl" data-id="${post.id}">${liked ? "❤️" : "🤍"}</button>
+          <button class="comment-btn text-xl" data-id="${post.id}">💬</button>
+        </div>
+      </div>
+      <div class="px-3 pt-1 text-sm font-semibold">${likeCount.toLocaleString("hi-IN")} लाइक्स</div>
+      <div class="px-3 pt-0.5 text-sm caption-text"><span class="font-semibold mr-1">${post.username}</span><span class="caption-body">${linkifyCaption(post.caption || "")}</span></div>
+      ${commentCount > 0 ? `<button class="comment-btn px-3 pt-1 text-xs text-white/40 block" data-id="${post.id}">${commentCount} कमेंट्स देखें</button>` : ""}
+    </article>
+  `);
+}
+
+function wirePostCardEvents(container) {
+  container.querySelectorAll(".like-btn").forEach((btn) => {
+    btn.onclick = () => toggleLike(btn.dataset.id);
+  });
+  container.querySelectorAll(".comment-btn").forEach((btn) => {
+    btn.onclick = () => openComments(btn.dataset.id);
+  });
+  container.querySelectorAll(".profile-link").forEach((elx) => {
+    elx.onclick = () => { currentView = "profile"; profileUid = elx.dataset.uid; renderProfile(elx.dataset.uid); };
+  });
+  container.querySelectorAll(".post-menu-btn").forEach((btn) => {
+    btn.onclick = () => openPostMenu(btn.dataset.id);
+  });
+  container.querySelectorAll(".hashtag-link").forEach((elx) => {
+    elx.onclick = (ev) => { ev.stopPropagation(); renderHashtagResults(elx.dataset.tag); };
+  });
+}
+
+async function toggleLike(postId) {
+  const post = posts.find((p) => p.id === postId) || (profilePosts || []).find((p) => p.id === postId);
+  const liked = (post.likes || []).includes(currentUser.uid);
+  const refDoc = doc(db, "posts", postId);
+  try {
+    await updateDoc(refDoc, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) });
+    if (!liked) pushNotification(post.uid, "like", postId);
+  } catch (e) { alert(friendlyError(e)); }
+}
+
+function openCreatePost() {
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+      <div class="w-full max-w-md bg-[#12141c] rounded-2xl border border-white/10 overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <button id="cp-close" class="text-white/60">✕</button>
+          <span class="font-semibold text-sm">नई पोस्ट</span>
+          <button id="cp-share" disabled class="text-white/20 font-semibold text-sm">शेयर</button>
+        </div>
+        <div id="cp-preview" class="aspect-square w-full bg-white/5 flex items-center justify-center text-white/30 text-sm">
+          फोटो चुनें 👇
+        </div>
+        <div class="p-4 space-y-3">
+          <label class="block w-full text-center bg-white/5 rounded-lg py-2.5 text-sm cursor-pointer">
+            📷 फोटो चुनें (कैमरा / गैलरी)
+            <input id="cp-file" type="file" accept="image/*" capture="environment" class="hidden" />
+          </label>
+          <textarea id="cp-caption" placeholder="कैप्शन लिखें..." rows="3" class="w-full bg-white/5 rounded-lg p-3 outline-none placeholder:text-white/30 text-sm resize-none"></textarea>
+          <p id="cp-status" class="text-xs text-white/40 hidden"></p>
+        </div>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  let file = null;
+
+  document.getElementById("cp-close").onclick = () => overlay.remove();
+  document.getElementById("cp-file").onchange = (e) => {
+    file = e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    document.getElementById("cp-preview").innerHTML = `<img src="${url}" class="w-full h-full object-cover" />`;
+    document.getElementById("cp-share").disabled = false;
+    document.getElementById("cp-share").classList.remove("text-white/20");
+    document.getElementById("cp-share").classList.add("text-amber-400");
+  };
+
+  document.getElementById("cp-share").onclick = async () => {
+    if (!file) return;
+    const status = document.getElementById("cp-status");
+    status.classList.remove("hidden");
+    status.textContent = "अपलोड हो रहा है...";
+    const shareBtn = document.getElementById("cp-share");
+    shareBtn.disabled = true;
+    try {
+      const imageUrl = await uploadToCloudinary(file);
+      const captionText = document.getElementById("cp-caption").value.trim();
+      const hashtags = extractHashtags(captionText);
+      await addDoc(collection(db, "posts"), {
+        uid: currentUser.uid,
+        username: currentUsername,
+        imageUrl,
+        caption: captionText,
+        hashtags,
+        likes: [],
+        commentCount: 0,
+        createdAt: serverTimestamp()
+      });
+      overlay.remove();
+    } catch (e) {
+      status.textContent = friendlyError(e) + " (Cloudinary preset check करें)";
+      shareBtn.disabled = false;
+    }
+  };
+}
+
+function extractHashtags(text) {
+  const matches = text.match(/#[\u0900-\u097Fa-zA-Z0-9_]+/g) || [];
+  return [...new Set(matches.map((h) => h.slice(1).toLowerCase()))];
+}
+
+function linkifyCaption(text) {
+  if (!text) return "";
+  return text.replace(/#([\u0900-\u097Fa-zA-Z0-9_]+)/g, `<span class="hashtag-link text-amber-400 cursor-pointer" data-tag="$1">#$1</span>`);
+}
+
+function openComments(postId) {
+  openCommentsPostId = postId;
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-black/60 flex items-end justify-center">
+      <div class="w-full max-w-md bg-[#12141c] rounded-t-2xl max-h-[75vh] flex flex-col border-t border-white/10">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <span class="font-semibold text-sm">कमेंट्स</span>
+          <button id="cm-close" class="text-white/60">✕</button>
+        </div>
+        <div id="cm-list" class="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          <div class="flex justify-center py-6"><div class="spinner"></div></div>
+        </div>
+        <div class="flex items-center gap-2 px-4 py-3 border-t border-white/10">
+          <input id="cm-input" placeholder="कमेंट लिखें..." class="flex-1 bg-white/5 rounded-full px-4 py-2 outline-none placeholder:text-white/30 text-sm" />
+          <button id="cm-send" class="text-amber-400 font-semibold text-sm">भेजें</button>
+        </div>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  document.getElementById("cm-close").onclick = () => { overlay.remove(); if (unsubComments) unsubComments(); };
+
+  const q = query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "asc"));
+  if (unsubComments) unsubComments();
+  unsubComments = onSnapshot(q, (snap) => {
+    const list = document.getElementById("cm-list");
+    if (!list) return;
+    if (snap.empty) {
+      list.innerHTML = `<p class="text-white/40 text-sm text-center py-8">अभी कोई कमेंट नहीं। पहला कमेंट करें!</p>`;
+      return;
+    }
+    list.innerHTML = "";
+    snap.forEach((d) => {
+      const c = d.data();
+      list.appendChild(el(`
+        <div class="flex gap-2 text-sm">
+          <div class="w-7 h-7 rounded-full bg-amber-500/30 flex items-center justify-center text-xs shrink-0">👤</div>
+          <div><span class="font-medium mr-2">${c.username}</span><span class="text-white/80">${c.text}</span></div>
+        </div>
+      `));
+    });
+  });
+
+  const send = async () => {
+    const input = document.getElementById("cm-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    await addDoc(collection(db, "posts", postId, "comments"), {
+      uid: currentUser.uid, username: currentUsername, text, createdAt: serverTimestamp()
+    });
+    const targetPost = posts.find(p=>p.id===postId) || (profilePosts||[]).find(p=>p.id===postId);
+    await updateDoc(doc(db, "posts", postId), { commentCount: (targetPost?.commentCount || 0) + 1 });
+    if (targetPost) pushNotification(targetPost.uid, "comment", postId);
+  };
+  document.getElementById("cm-send").onclick = send;
+  document.getElementById("cm-input").onkeydown = (e) => { if (e.key === "Enter") send(); };
+}
+
+function openPostMenu(postId) {
+  const post = posts.find((p) => p.id === postId) || (profilePosts || []).find((p) => p.id === postId);
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-black/60 flex items-end justify-center">
+      <div class="w-full max-w-md bg-[#12141c] rounded-t-2xl border-t border-white/10 overflow-hidden">
+        <button id="pm-edit" class="w-full text-center py-4 text-sm border-b border-white/10">कैप्शन एडिट करें</button>
+        <button id="pm-delete" class="w-full text-center py-4 text-sm text-rose-400 border-b border-white/10">पोस्ट डिलीट करें</button>
+        <button id="pm-cancel" class="w-full text-center py-4 text-sm text-white/50">रद्द करें</button>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  document.getElementById("pm-cancel").onclick = () => overlay.remove();
+  document.getElementById("pm-edit").onclick = () => {
+    overlay.remove();
+    const newCaption = prompt("नया कैप्शन लिखें:", post?.caption || "");
+    if (newCaption !== null) {
+      updateDoc(doc(db, "posts", postId), { caption: newCaption.trim() }).catch((e) => alert(friendlyError(e)));
+    }
+  };
+  document.getElementById("pm-delete").onclick = async () => {
+    overlay.remove();
+    if (!confirm("क्या आप वाकई इस पोस्ट को डिलीट करना चाहते हैं?")) return;
+    try {
+      await deleteDoc(doc(db, "posts", postId));
+    } catch (e) { alert(friendlyError(e)); }
+  };
+}
+
+// ---------- STORIES ----------
+function listenStories() {
+  if (unsubStories) unsubStories();
+  const row = document.getElementById("stories-row");
+  if (!row) return;
+  const q = query(collection(db, "stories"), orderBy("createdAt", "desc"));
+  unsubStories = onSnapshot(q, (snap) => {
+    const now = Date.now();
+    stories = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((s) => {
+        const t = s.createdAt?.toDate ? s.createdAt.toDate().getTime() : now;
+        return now - t < 24 * 3600 * 1000;
+      });
+    renderStoriesRow();
+  }, () => {});
+}
+
+function renderStoriesRow() {
+  const row = document.getElementById("stories-row");
+  if (!row) return;
+  row.innerHTML = "";
+  const addBtn = el(`
+    <div class="flex flex-col items-center gap-1 shrink-0 w-16 cursor-pointer" id="add-story-btn">
+      <div class="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center text-xl">＋</div>
+      <span class="text-[10px] text-white/60">स्टोरी</span>
+    </div>
+  `);
+  row.appendChild(addBtn);
+  document.getElementById("add-story-btn").onclick = openCreateStory;
+
+  const myStories = stories.filter((s) => s.uid === currentUser.uid);
+  const othersByUser = {};
+  stories.filter((s) => s.uid !== currentUser.uid).forEach((s) => {
+    if (!othersByUser[s.uid]) othersByUser[s.uid] = [];
+    othersByUser[s.uid].push(s);
+  });
+
+  if (myStories.length) {
+    row.appendChild(makeStoryBubble(myStories[0].username, () => viewStories(myStories)));
+  }
+  Object.values(othersByUser).forEach((group) => {
+    row.appendChild(makeStoryBubble(group[0].username, () => viewStories(group)));
+  });
+}
+
+function makeStoryBubble(username, onClick) {
+  const bubble = el(`
+    <div class="flex flex-col items-center gap-1 shrink-0 w-16 cursor-pointer">
+      <div class="w-14 h-14 rounded-full ring-story p-[2px]">
+        <div class="w-full h-full rounded-full bg-[#0B0B0F] flex items-center justify-center text-xl">👤</div>
+      </div>
+      <span class="text-[10px] text-white/60 truncate w-full text-center">${username}</span>
+    </div>
+  `);
+  bubble.onclick = onClick;
+  return bubble;
+}
+
+function openCreateStory() {
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+      <div class="w-full max-w-md bg-[#12141c] rounded-2xl border border-white/10 overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <button id="st-close" class="text-white/60">✕</button>
+          <span class="font-semibold text-sm">नई स्टोरी (24 घंटे)</span>
+          <button id="st-share" disabled class="text-white/20 font-semibold text-sm">शेयर</button>
+        </div>
+        <div id="st-preview" class="aspect-[9/16] w-full bg-white/5 flex items-center justify-center text-white/30 text-sm">
+          फोटो चुनें 👇
+        </div>
+        <div class="p-4">
+          <label class="block w-full text-center bg-white/5 rounded-lg py-2.5 text-sm cursor-pointer">
+            📷 फोटो चुनें (कैमरा / गैलरी)
+            <input id="st-file" type="file" accept="image/*" capture="environment" class="hidden" />
+          </label>
+          <p id="st-status" class="text-xs text-white/40 hidden mt-2"></p>
+        </div>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  let file = null;
+  document.getElementById("st-close").onclick = () => overlay.remove();
+  document.getElementById("st-file").onchange = (e) => {
+    file = e.target.files[0];
+    if (!file) return;
+    document.getElementById("st-preview").innerHTML = `<img src="${URL.createObjectURL(file)}" class="w-full h-full object-cover" />`;
+    const shareBtn = document.getElementById("st-share");
+    shareBtn.disabled = false;
+    shareBtn.classList.remove("text-white/20");
+    shareBtn.classList.add("text-amber-400");
+  };
+  document.getElementById("st-share").onclick = async () => {
+    if (!file) return;
+    const status = document.getElementById("st-status");
+    status.classList.remove("hidden");
+    status.textContent = "अपलोड हो रहा है...";
+    try {
+      const imageUrl = await uploadToCloudinary(file);
+      await addDoc(collection(db, "stories"), {
+        uid: currentUser.uid, username: currentUsername, imageUrl, createdAt: serverTimestamp()
+      });
+      overlay.remove();
+    } catch (e) {
+      status.textContent = friendlyError(e);
+    }
+  };
+}
+
+function viewStories(list) {
+  let idx = 0;
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-black flex items-center justify-center">
+      <div class="w-full max-w-md h-full relative">
+        <div id="story-bar" class="absolute top-2 left-2 right-2 flex gap-1 z-10"></div>
+        <button id="story-close" class="absolute top-6 right-3 text-white text-xl z-10">✕</button>
+        <img id="story-img" class="w-full h-full object-contain" />
+        <div class="absolute inset-y-0 left-0 w-1/3" id="story-prev"></div>
+        <div class="absolute inset-y-0 right-0 w-1/3" id="story-next"></div>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  const bar = document.getElementById("story-bar");
+  list.forEach(() => bar.appendChild(el(`<div class="h-0.5 flex-1 bg-white/30 rounded"></div>`)));
+
+  function show(i) {
+    if (i < 0) i = 0;
+    if (i >= list.length) { overlay.remove(); return; }
+    idx = i;
+    document.getElementById("story-img").src = list[idx].imageUrl;
+    Array.from(bar.children).forEach((b, j) => b.classList.toggle("bg-white", j <= idx));
+  }
+  show(0);
+  document.getElementById("story-close").onclick = () => overlay.remove();
+  document.getElementById("story-prev").onclick = () => show(idx - 1);
+  document.getElementById("story-next").onclick = () => show(idx + 1);
+}
+
+// ---------- PROFILE ----------
+let profilePosts = [];
+async function renderProfile(uid) {
+  const feedEl = document.getElementById("feed");
+  const storiesRow = document.getElementById("stories-row");
+  if (storiesRow) storiesRow.classList.add("hidden");
+  updateNavHighlight();
+  feedEl.innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`;
+
+  const userSnap = await getDoc(doc(db, "users", uid));
+  const userData = userSnap.exists() ? userSnap.data() : { username: "user" };
+
+  const q = query(collection(db, "posts"), where("uid", "==", uid), orderBy("createdAt", "desc"));
+  const snap = await getDocs(q);
+  profilePosts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  feedEl.innerHTML = "";
+  const followers = userData.followers || [];
+  const following = userData.following || [];
+  const isOwn = uid === currentUser.uid;
+  const isFollowing = followers.includes(currentUser.uid);
+  const header = el(`
+    <div class="px-4 py-5 border-b border-white/5">
+      <div class="flex items-center gap-4">
+        <div class="w-16 h-16 rounded-full ring-story p-[2px] shrink-0"><div class="w-full h-full rounded-full bg-[#0B0B0F] flex items-center justify-center text-2xl">👤</div></div>
+        <div class="flex-1">
+          <p class="font-semibold">${userData.username}</p>
+          <div class="flex gap-4 mt-1 text-xs text-white/60">
+            <span><b class="text-white">${profilePosts.length}</b> पोस्ट्स</span>
+            <span><b class="text-white">${followers.length}</b> फॉलोअर्स</span>
+            <span><b class="text-white">${following.length}</b> फॉलोइंग</span>
+          </div>
+        </div>
+      </div>
+      ${userData.bio ? `<p class="text-sm text-white/70 mt-3">${userData.bio}</p>` : ""}
+      ${isOwn
+        ? `<button id="edit-bio-btn" class="mt-3 text-xs bg-white/5 rounded-full px-4 py-1.5">बायो एडिट करें</button>`
+        : `<div class="flex gap-2 mt-3">
+            <button id="follow-btn" class="text-xs font-semibold rounded-full px-5 py-1.5 ${isFollowing ? "bg-white/10 text-white" : "bg-gradient-to-r from-amber-400 to-rose-500 text-black"}">${isFollowing ? "फॉलोइंग" : "फॉलो करें"}</button>
+            <button id="message-btn" class="text-xs font-semibold rounded-full px-5 py-1.5 bg-white/10 text-white">मैसेज</button>
+            <button id="options-btn" class="text-xs font-semibold rounded-full px-3 py-1.5 bg-white/10 text-white">⋯</button>
+          </div>`
+      }
+    </div>
+    <div id="profile-grid" class="grid grid-cols-3 gap-0.5"></div>
+  `);
+  feedEl.appendChild(header);
+
+  if (isOwn) {
+    document.getElementById("edit-bio-btn").onclick = async () => {
+      const bio = prompt("अपना बायो लिखें:", userData.bio || "");
+      if (bio !== null) {
+        await setDoc(doc(db, "users", uid), { bio: bio.trim() }, { merge: true });
+        renderProfile(uid);
+      }
+    };
+  } else {
+    document.getElementById("follow-btn").onclick = async () => {
+      try {
+        if (isFollowing) {
+          await updateDoc(doc(db, "users", uid), { followers: arrayRemove(currentUser.uid) });
+          await updateDoc(doc(db, "users", currentUser.uid), { following: arrayRemove(uid) });
+        } else {
+          await updateDoc(doc(db, "users", uid), { followers: arrayUnion(currentUser.uid) });
+          await updateDoc(doc(db, "users", currentUser.uid), { following: arrayUnion(uid) });
+          pushNotification(uid, "follow", null);
+        }
+        renderProfile(uid);
+      } catch (e) { alert(friendlyError(e)); }
+    };
+    document.getElementById("message-btn").onclick = () => startChat(uid, userData.username);
+    document.getElementById("options-btn").onclick = () => openUserOptionsMenu(uid, userData.username);
+  }
+
+  const grid = document.getElementById("profile-grid");
+  if (!profilePosts.length) {
+    grid.innerHTML = `<p class="col-span-3 text-center text-white/30 text-sm py-10">अभी कोई पोस्ट नहीं है</p>`;
+    return;
+  }
+  profilePosts.forEach((post) => {
+    const thumb = el(`<img src="${post.imageUrl}" class="w-full aspect-square object-cover cursor-pointer" data-id="${post.id}" />`);
+    thumb.onclick = () => openSinglePostView(post);
+    grid.appendChild(thumb);
+  });
+}
+
+function openSinglePostView(post) {
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-2">
+      <div class="w-full max-w-md bg-[#0B0B0F] rounded-xl overflow-hidden max-h-[90vh] overflow-y-auto"></div>
+    </div>
+  `);
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  const card = renderPostCard(post);
+  overlay.firstElementChild.appendChild(card);
+  document.body.appendChild(overlay);
+  wirePostCardEvents(overlay);
+}
+
+// ---------- SEARCH ----------
+function renderSearch() {
+  const feedEl = document.getElementById("feed");
+  const storiesRow = document.getElementById("stories-row");
+  if (storiesRow) storiesRow.classList.add("hidden");
+  updateNavHighlight();
+  feedEl.innerHTML = `
+    <div class="px-4 py-3 sticky top-0 bg-[#0B0B0F] z-10">
+      <input id="search-input" placeholder="यूज़रनेम खोजें..." class="w-full bg-white/5 rounded-full px-4 py-2.5 outline-none placeholder:text-white/30 text-sm" />
+    </div>
+    <div id="search-results" class="px-2"></div>
+  `;
+  const input = document.getElementById("search-input");
+  input.focus();
+  let debounce;
+  input.oninput = () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => runSearch(input.value.trim()), 300);
+  };
+}
+
+async function runSearch(term) {
+  const results = document.getElementById("search-results");
+  if (!results) return;
+  if (!term) { results.innerHTML = ""; return; }
+  if (term.startsWith("#")) {
+    renderHashtagResults(term.slice(1).toLowerCase(), results);
+    return;
+  }
+  results.innerHTML = `<div class="flex justify-center py-6"><div class="spinner"></div></div>`;
+  try {
+    const q = query(
+      collection(db, "users"),
+      orderBy("username"),
+      where("username", ">=", term),
+      where("username", "<=", term + "\uf8ff"),
+      limit(20)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      results.innerHTML = `<p class="text-center text-white/30 text-sm py-10">कोई यूज़र नहीं मिला</p>`;
+      return;
+    }
+    results.innerHTML = "";
+    snap.forEach((d) => {
+      const u = d.data();
+      const row = el(`
+        <div class="flex items-center gap-3 px-2 py-3 border-b border-white/5 cursor-pointer">
+          <div class="w-10 h-10 rounded-full ring-story p-[2px]"><div class="w-full h-full rounded-full bg-[#0B0B0F] flex items-center justify-center">👤</div></div>
+          <span class="text-sm font-medium">${u.username}</span>
+        </div>
+      `);
+      row.onclick = () => { currentView = "profile"; renderProfile(d.id); };
+      results.appendChild(row);
+    });
+  } catch (e) {
+    results.innerHTML = `<p class="text-center text-rose-400 text-sm py-10 px-4">${friendlyError(e)}</p>`;
+  }
+}
+
+
+// ---------- NOTIFICATIONS ----------
+async function pushNotification(toUid, type, postId) {
+  if (toUid === currentUser.uid) return;
+  try {
+    await addDoc(collection(db, "notifications"), {
+      toUid, fromUid: currentUser.uid, fromUsername: currentUsername,
+      type, postId: postId || null, read: false, createdAt: serverTimestamp()
+    });
+  } catch (e) { /* silent fail */ }
+}
+
+function listenNotifications() {
+  if (unsubNotifications) unsubNotifications();
+  const q = query(collection(db, "notifications"), where("toUid", "==", currentUser.uid), where("read", "==", false));
+  unsubNotifications = onSnapshot(q, (snap) => {
+    const badge = document.getElementById("notif-badge");
+    if (!badge) return;
+    if (snap.size > 0) {
+      badge.textContent = snap.size > 9 ? "9+" : String(snap.size);
+      badge.classList.remove("hidden");
+    } else {
+      badge.classList.add("hidden");
+    }
+  }, () => {});
+}
+
+function notifText(n) {
+  if (n.type === "like") return `${n.fromUsername} ने आपकी पोस्ट लाइक की`;
+  if (n.type === "comment") return `${n.fromUsername} ने आपकी पोस्ट पर कमेंट किया`;
+  if (n.type === "follow") return `${n.fromUsername} ने आपको फॉलो किया`;
+  return `${n.fromUsername} की नई गतिविधि`;
+}
+
+async function openNotifications() {
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-black/60 flex items-end justify-center">
+      <div class="w-full max-w-md bg-[#12141c] rounded-t-2xl max-h-[80vh] flex flex-col border-t border-white/10">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <span class="font-semibold text-sm">नोटिफिकेशन्स</span>
+          <button id="nf-close" class="text-white/60">✕</button>
+        </div>
+        <div id="nf-list" class="flex-1 overflow-y-auto px-4 py-3 space-y-1">
+          <div class="flex justify-center py-6"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  document.getElementById("nf-close").onclick = () => overlay.remove();
+
+  const q = query(collection(db, "notifications"), where("toUid", "==", currentUser.uid), orderBy("createdAt", "desc"), limit(50));
+  const snap = await getDocs(q);
+  const list = document.getElementById("nf-list");
+  if (snap.empty) {
+    list.innerHTML = `<p class="text-white/40 text-sm text-center py-10">अभी कोई नोटिफिकेशन नहीं है</p>`;
+    return;
+  }
+  list.innerHTML = "";
+  snap.forEach((d) => {
+    const n = d.data();
+    const row = el(`
+      <div class="flex items-center gap-3 py-2.5 border-b border-white/5 text-sm ${n.read ? "text-white/50" : "text-white"}">
+        <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+          ${n.type === "like" ? "❤️" : n.type === "comment" ? "💬" : "➕"}
+        </div>
+        <div class="flex-1">${notifText(n)}<div class="text-[10px] text-white/30">${timeAgo(n.createdAt)}</div></div>
+      </div>
+    `);
+    list.appendChild(row);
+    if (!n.read) updateDoc(doc(db, "notifications", d.id), { read: true }).catch(() => {});
+  });
+}
+
+
+// ---------- DIRECT MESSAGES ----------
+function convIdFor(uidA, uidB) {
+  return [uidA, uidB].sort().join("_");
+}
+
+async function startChat(otherUid, otherUsername) {
+  const convId = convIdFor(currentUser.uid, otherUid);
+  const convRef = doc(db, "conversations", convId);
+  const snap = await getDoc(convRef);
+  if (!snap.exists()) {
+    await setDoc(convRef, {
+      participants: [currentUser.uid, otherUid],
+      usernames: { [currentUser.uid]: currentUsername, [otherUid]: otherUsername },
+      lastMessage: "", lastMessageAt: serverTimestamp()
+    });
+  }
+  openChat(convId, otherUid, otherUsername);
+}
+
+let unsubChat = null;
+let currentIsAdmin = false;
+let currentBlockedUsers = [];
+function openChat(convId, otherUid, otherUsername) {
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-[#0B0B0F] flex flex-col">
+      <div class="flex items-center gap-3 px-4 py-3 border-b border-white/5">
+        <button id="chat-close" class="text-white/70">←</button>
+        <div class="w-8 h-8 rounded-full ring-story p-[2px]"><div class="w-full h-full rounded-full bg-[#0B0B0F] flex items-center justify-center text-sm">👤</div></div>
+        <span class="font-semibold text-sm">${otherUsername}</span>
+      </div>
+      <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-3 space-y-2"></div>
+      <div class="flex items-center gap-2 px-4 py-3 border-t border-white/5">
+        <input id="chat-input" placeholder="मैसेज लिखें..." class="flex-1 bg-white/5 rounded-full px-4 py-2 outline-none placeholder:text-white/30 text-sm" />
+        <button id="chat-send" class="text-amber-400 font-semibold text-sm">भेजें</button>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  document.getElementById("chat-close").onclick = () => { overlay.remove(); if (unsubChat) unsubChat(); };
+
+  const q = query(collection(db, "conversations", convId, "messages"), orderBy("createdAt", "asc"));
+  if (unsubChat) unsubChat();
+  unsubChat = onSnapshot(q, (snap) => {
+    const list = document.getElementById("chat-messages");
+    if (!list) return;
+    list.innerHTML = "";
+    snap.forEach((d) => {
+      const m = d.data();
+      const mine = m.fromUid === currentUser.uid;
+      list.appendChild(el(`
+        <div class="flex ${mine ? "justify-end" : "justify-start"}">
+          <div class="max-w-[75%] px-3 py-2 rounded-2xl text-sm ${mine ? "bg-amber-500 text-black" : "bg-white/10 text-white"}">${m.text}</div>
+        </div>
+      `));
+    });
+    list.scrollTop = list.scrollHeight;
+  });
+
+  const send = async () => {
+    const input = document.getElementById("chat-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    await addDoc(collection(db, "conversations", convId, "messages"), {
+      fromUid: currentUser.uid, text, createdAt: serverTimestamp()
+    });
+    await updateDoc(doc(db, "conversations", convId), { lastMessage: text, lastMessageAt: serverTimestamp() });
+  };
+  document.getElementById("chat-send").onclick = send;
+  document.getElementById("chat-input").onkeydown = (e) => { if (e.key === "Enter") send(); };
+}
+
+async function openInbox() {
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-black/60 flex items-end justify-center">
+      <div class="w-full max-w-md bg-[#12141c] rounded-t-2xl max-h-[80vh] flex flex-col border-t border-white/10">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <span class="font-semibold text-sm">मैसेज</span>
+          <button id="inbox-close" class="text-white/60">✕</button>
+        </div>
+        <div id="inbox-list" class="flex-1 overflow-y-auto px-2 py-2">
+          <div class="flex justify-center py-6"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  document.getElementById("inbox-close").onclick = () => overlay.remove();
+
+  const q = query(collection(db, "conversations"), where("participants", "array-contains", currentUser.uid), orderBy("lastMessageAt", "desc"));
+  const snap = await getDocs(q);
+  const list = document.getElementById("inbox-list");
+  if (snap.empty) {
+    list.innerHTML = `<p class="text-center text-white/30 text-sm py-10 px-6">अभी कोई मैसेज नहीं है। किसी के profile पर जाकर "मैसेज" दबाएं</p>`;
+    return;
+  }
+  list.innerHTML = "";
+  snap.forEach((d) => {
+    const c = d.data();
+    const otherUid = c.participants.find((p) => p !== currentUser.uid);
+    const otherUsername = c.usernames?.[otherUid] || "user";
+    const row = el(`
+      <div class="flex items-center gap-3 px-2 py-3 border-b border-white/5 cursor-pointer">
+        <div class="w-10 h-10 rounded-full ring-story p-[2px]"><div class="w-full h-full rounded-full bg-[#0B0B0F] flex items-center justify-center">👤</div></div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium">${otherUsername}</p>
+          <p class="text-xs text-white/40 truncate">${c.lastMessage || "बातचीत शुरू करें"}</p>
+        </div>
+      </div>
+    `);
+    row.onclick = () => { overlay.remove(); openChat(d.id, otherUid, otherUsername); };
+    list.appendChild(row);
+  });
+}
+
+
+// ---------- ADMIN DASHBOARD ----------
+async function openAdminDashboard() {
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-[#0B0B0F] flex flex-col">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-white/5">
+        <span class="font-semibold text-sm">🛠️ Admin Dashboard</span>
+        <button id="admin-close" class="text-white/60">✕</button>
+      </div>
+      <div class="flex border-b border-white/5">
+        <button id="admin-tab-stats" class="flex-1 py-2.5 text-xs font-semibold text-amber-400 border-b-2 border-amber-400">Stats</button>
+        <button id="admin-tab-users" class="flex-1 py-2.5 text-xs font-semibold text-white/50">Users</button>
+        <button id="admin-tab-posts" class="flex-1 py-2.5 text-xs font-semibold text-white/50">Posts</button>
+      </div>
+      <div id="admin-content" class="flex-1 overflow-y-auto p-4">
+        <div class="flex justify-center py-10"><div class="spinner"></div></div>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  document.getElementById("admin-close").onclick = () => overlay.remove();
+
+  const tabs = { stats: adminRenderStats, users: adminRenderUsers, posts: adminRenderPosts };
+  function setTab(name) {
+    ["stats", "users", "posts"].forEach((t) => {
+      const btn = document.getElementById(`admin-tab-${t}`);
+      btn.className = t === name ? "flex-1 py-2.5 text-xs font-semibold text-amber-400 border-b-2 border-amber-400" : "flex-1 py-2.5 text-xs font-semibold text-white/50";
+    });
+    tabs[name]();
+  }
+  document.getElementById("admin-tab-stats").onclick = () => setTab("stats");
+  document.getElementById("admin-tab-users").onclick = () => setTab("users");
+  document.getElementById("admin-tab-posts").onclick = () => setTab("posts");
+  setTab("stats");
+}
+
+async function adminRenderStats() {
+  const content = document.getElementById("admin-content");
+  content.innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`;
+  const [usersSnap, postsSnap, storiesSnap] = await Promise.all([
+    getDocs(collection(db, "users")),
+    getDocs(collection(db, "posts")),
+    getDocs(collection(db, "stories"))
+  ]);
+  content.innerHTML = `
+    <div class="grid grid-cols-2 gap-3">
+      <div class="bg-white/5 rounded-xl p-4"><p class="text-2xl font-bold">${usersSnap.size}</p><p class="text-xs text-white/50 mt-1">कुल यूज़र्स</p></div>
+      <div class="bg-white/5 rounded-xl p-4"><p class="text-2xl font-bold">${postsSnap.size}</p><p class="text-xs text-white/50 mt-1">कुल पोस्ट्स</p></div>
+      <div class="bg-white/5 rounded-xl p-4"><p class="text-2xl font-bold">${storiesSnap.size}</p><p class="text-xs text-white/50 mt-1">एक्टिव स्टोरीज़</p></div>
+    </div>
+  `;
+}
+
+async function adminRenderUsers() {
+  const content = document.getElementById("admin-content");
+  content.innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`;
+  const snap = await getDocs(query(collection(db, "users"), orderBy("createdAt", "desc")));
+  content.innerHTML = "";
+  snap.forEach((d) => {
+    const u = d.data();
+    const row = el(`
+      <div class="flex items-center justify-between py-2.5 border-b border-white/5">
+        <div>
+          <p class="text-sm font-medium">${u.username || "user"} ${u.isAdmin ? "👑" : ""}</p>
+          <p class="text-[10px] text-white/40">${u.email || ""}</p>
+        </div>
+        <button class="admin-del-user text-rose-400 text-xs" data-id="${d.id}">डिलीट</button>
+      </div>
+    `);
+    row.querySelector(".admin-del-user").onclick = async (ev) => {
+      ev.stopPropagation();
+      if (!confirm(`${u.username} को डिलीट करें? (सिर्फ profile data हटेगा)`)) return;
+      await deleteDoc(doc(db, "users", d.id));
+      adminRenderUsers();
+    };
+    content.appendChild(row);
+  });
+}
+
+async function adminRenderPosts() {
+  const content = document.getElementById("admin-content");
+  content.innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`;
+  const snap = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")));
+  content.innerHTML = `<div class="grid grid-cols-3 gap-1"></div>`;
+  const grid = content.firstElementChild;
+  snap.forEach((d) => {
+    const p = d.data();
+    const cell = el(`
+      <div class="relative">
+        <img src="${p.imageUrl}" class="w-full aspect-square object-cover" />
+        <button class="admin-del-post absolute top-1 right-1 bg-black/70 text-rose-400 text-[10px] rounded px-1.5 py-0.5" data-id="${d.id}">✕</button>
+      </div>
+    `);
+    cell.querySelector(".admin-del-post").onclick = async () => {
+      if (!confirm("यह पोस्ट डिलीट करें?")) return;
+      await deleteDoc(doc(db, "posts", d.id));
+      adminRenderPosts();
+    };
+    grid.appendChild(cell);
+  });
+}
+
+
+// ---------- EXPLORE ----------
+async function renderExplore() {
+  const feedEl = document.getElementById("feed");
+  const storiesRow = document.getElementById("stories-row");
+  if (storiesRow) storiesRow.classList.add("hidden");
+  updateNavHighlight();
+  feedEl.innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`;
+  try {
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(60));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      feedEl.innerHTML = `<p class="text-center text-white/30 text-sm py-16 px-8">अभी कोई पोस्ट नहीं है</p>`;
+      return;
+    }
+    feedEl.innerHTML = `<div id="explore-grid" class="grid grid-cols-3 gap-0.5"></div>`;
+    const grid = document.getElementById("explore-grid");
+    snap.forEach((d) => {
+      const post = { id: d.id, ...d.data() };
+      if (currentBlockedUsers.includes(post.uid)) return;
+      const thumb = el(`<img src="${post.imageUrl}" class="w-full aspect-square object-cover cursor-pointer" />`);
+      thumb.onclick = () => openSinglePostView(post);
+      grid.appendChild(thumb);
+    });
+  } catch (e) {
+    feedEl.innerHTML = `<p class="text-center text-rose-400 text-sm py-10 px-6">${friendlyError(e)}</p>`;
+  }
+}
+
+// ---------- HASHTAGS ----------
+async function renderHashtagResults(tag, targetEl) {
+  currentView = "hashtag";
+  const container = targetEl || document.getElementById("feed");
+  const storiesRow = document.getElementById("stories-row");
+  if (!targetEl && storiesRow) storiesRow.classList.add("hidden");
+  if (!targetEl) updateNavHighlight();
+  container.innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`;
+  try {
+    const q = query(collection(db, "posts"), where("hashtags", "array-contains", tag), orderBy("createdAt", "desc"), limit(60));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      container.innerHTML = `<p class="text-center text-white/30 text-sm py-16 px-8">#${tag} पर कोई पोस्ट नहीं मिली</p>`;
+      return;
+    }
+    container.innerHTML = `<p class="px-4 py-2 text-sm text-white/50">#${tag} — ${snap.size} पोस्ट्स</p><div id="tag-grid" class="grid grid-cols-3 gap-0.5"></div>`;
+    const grid = document.getElementById("tag-grid");
+    snap.forEach((d) => {
+      const post = { id: d.id, ...d.data() };
+      const thumb = el(`<img src="${post.imageUrl}" class="w-full aspect-square object-cover cursor-pointer" />`);
+      thumb.onclick = () => openSinglePostView(post);
+      grid.appendChild(thumb);
+    });
+  } catch (e) {
+    container.innerHTML = `<p class="text-center text-rose-400 text-sm py-10 px-6">${friendlyError(e)}</p>`;
+  }
+}
+
+// ---------- BLOCK / REPORT ----------
+async function openUserOptionsMenu(uid, username) {
+  const myDoc = await getDoc(doc(db, "users", currentUser.uid));
+  const blocked = (myDoc.exists() && myDoc.data().blockedUsers) || [];
+  const isBlocked = blocked.includes(uid);
+  const overlay = el(`
+    <div class="fixed inset-0 z-50 bg-black/60 flex items-end justify-center">
+      <div class="w-full max-w-md bg-[#12141c] rounded-t-2xl border-t border-white/10 overflow-hidden">
+        <button id="um-block" class="w-full text-center py-4 text-sm text-rose-400 border-b border-white/10">${isBlocked ? "अनब्लॉक करें" : "ब्लॉक करें"}</button>
+        <button id="um-report" class="w-full text-center py-4 text-sm text-rose-400 border-b border-white/10">रिपोर्ट करें</button>
+        <button id="um-cancel" class="w-full text-center py-4 text-sm text-white/50">रद्द करें</button>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(overlay);
+  document.getElementById("um-cancel").onclick = () => overlay.remove();
+  document.getElementById("um-block").onclick = async () => {
+    overlay.remove();
+    try {
+      await setDoc(doc(db, "users", currentUser.uid), {
+        blockedUsers: isBlocked ? arrayRemove(uid) : arrayUnion(uid)
+      }, { merge: true });
+      alert(isBlocked ? `${username} को अनब्लॉक कर दिया` : `${username} को ब्लॉक कर दिया, अब उनकी पोस्ट्स आपको नहीं दिखेंगी`);
+      if (currentView === "home") showHome();
+    } catch (e) { alert(friendlyError(e)); }
+  };
+  document.getElementById("um-report").onclick = async () => {
+    overlay.remove();
+    const reason = prompt("रिपोर्ट का कारण (optional):", "");
+    try {
+      await addDoc(collection(db, "reports"), {
+        reportedUid: uid, reportedUsername: username,
+        reporterUid: currentUser.uid, reporterUsername: currentUsername,
+        reason: reason || "", createdAt: serverTimestamp()
+      });
+      alert("रिपोर्ट भेज दी गई, धन्यवाद");
+    } catch (e) { alert(friendlyError(e)); }
+  };
+}
+
+
+root.innerHTML = `<div class="flex items-center justify-center min-h-screen"><div class="spinner"></div></div>`;
+onAuthStateChanged(auth, async (user) => {
+  if (unsubPosts) { unsubPosts(); unsubPosts = null; }
+  if (unsubComments) { unsubComments(); unsubComments = null; }
+  if (unsubStories) { unsubStories(); unsubStories = null; }
+  if (unsubNotifications) { unsubNotifications(); unsubNotifications = null; }
+  if (unsubChat) { unsubChat(); unsubChat = null; }
+  if (user) {
+    currentUser = user;
+    const snap = await getDoc(doc(db, "users", user.uid));
+    currentUsername = snap.exists() ? snap.data().username : (user.displayName || "user");
+    currentIsAdmin = snap.exists() ? !!snap.data().isAdmin : false;
+    currentBlockedUsers = snap.exists() ? (snap.data().blockedUsers || []) : [];
+    renderApp();
+  } else {
+    currentUser = null;
+    renderAuth("login");
+  }
+});
+</script>
+</body>
+</html>
